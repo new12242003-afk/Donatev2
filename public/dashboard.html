@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>แดชบอร์ด · Donate Stream</title>
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+  <script src="/js/common.js"></script>
+  <div class="container">
+
+    <div class="card">
+      <div class="row" style="justify-content:space-between;align-items:flex-start">
+        <div>
+          <div class="muted">ยอด Token คงเหลือ (1 Token = 1 บาท)</div>
+          <div class="balance" id="bal">0</div>
+        </div>
+        <div id="earnBox" style="display:none;text-align:right">
+          <div class="muted">รายได้จากโดเนท</div>
+          <div class="balance" id="earn">0</div>
+        </div>
+      </div>
+      <div id="verifyWarn" class="muted" style="display:none;margin-top:10px;color:#f87171">
+        ⚠️ ยังไม่ได้ยืนยันอีเมล — เติมเงินและโดเนทไม่ได้จนกว่าจะยืนยัน
+      </div>
+      <div class="row" style="margin-top:10px">
+        <button class="ghost sm" id="becomeStreamer" style="display:none">อัปเกรดบัญชีเป็นสตรีมเมอร์</button>
+      </div>
+    </div>
+
+    <div class="dash-layout">
+      <nav class="sidebar" id="dashNav">
+        <button class="sidebar-item" data-tab="topup"><span class="ic">💰</span> เติมเงินเข้าเว็บไซต์</button>
+        <button class="sidebar-item" data-tab="donate"><span class="ic">🎁</span> ส่งโดเนท</button>
+        <button class="sidebar-item" data-tab="settings" id="navSettings" style="display:none"><span class="ic">⚙️</span> ตั้งค่าโดเนท</button>
+        <button class="sidebar-item" data-tab="earnings" id="navEarnings" style="display:none"><span class="ic">💵</span> รับเงิน & รายได้</button>
+        <button class="sidebar-item" data-tab="stats" id="navStats" style="display:none"><span class="ic">📊</span> หน้าจัดการ / สถิติ</button>
+        <button class="sidebar-item" data-tab="leaderboard" id="navLeaderboard" style="display:none"><span class="ic">🏆</span> อันดับผู้โดเนท</button>
+        <button class="sidebar-item" data-tab="account"><span class="ic">👤</span> บัญชีผู้ใช้</button>
+      </nav>
+
+      <div class="dash-content">
+
+        <!-- เติมเงิน -->
+        <section class="tab-panel" data-panel="topup">
+          <div class="card">
+            <h2>เติมเงินเข้าเว็บไซต์</h2>
+            <div class="row" id="pkgs"></div>
+            <label>หรือระบุจำนวนเอง (บาท)</label>
+            <div class="row">
+              <input id="topupAmt" type="number" min="20" placeholder="20" style="max-width:150px">
+              <select id="topupMethod" style="max-width:190px">
+                <option value="mock">ชำระทันที (จำลอง)</option>
+                <option value="promptpay">PromptPay QR (จำลอง)</option>
+              </select>
+              <button id="topupGo">เติมเงิน</button>
+            </div>
+            <div id="topupOut" class="muted" style="margin-top:8px"></div>
+          </div>
+        </section>
+
+        <!-- โดเนท -->
+        <section class="tab-panel" data-panel="donate">
+          <div class="card">
+            <h2>ส่งโดเนท</h2>
+            <label>เลือกสตรีมเมอร์</label>
+            <select id="dStreamer"></select>
+            <div class="grid c2">
+              <div>
+                <label>ชื่อผู้ส่ง (แสดงบนจอ)</label>
+                <input id="dName">
+              </div>
+              <div>
+                <label>ข้อความ (ไม่บังคับ, สูงสุด 200 ตัว)</label>
+                <input id="dMsg" maxlength="200">
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3 style="margin:0 0 12px">โดเนทด้วยจำนวนเงินที่กำหนดเอง</h3>
+            <label>จำนวนเงิน (บาท)</label>
+            <div class="row">
+              <input id="dAmount" type="number" min="1" max="1000" value="20" style="max-width:150px">
+              <button id="dGo">ส่งโดเนท</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3 style="margin:0 0 6px">ส่งสติกเกอร์ (ราคาคงที่ กดแล้วส่งทันที)</h3>
+            <p class="muted" style="margin-top:0">ไม่ต้องกรอกจำนวนเงินเพิ่ม แต่ละสติกเกอร์มีราคาตามที่แสดงไว้ใต้ไอคอน กดปุ่มแล้วส่งโดเนททันที</p>
+            <div class="stickpick" id="dStickers"></div>
+          </div>
+
+          <div class="card">
+            <h2>ประวัติการโดเนทของฉัน</h2>
+            <div class="tablewrap">
+              <table>
+                <thead><tr><th>เวลา</th><th>ถึง</th><th>จำนวน</th><th>สติกเกอร์</th><th>ข้อความ</th></tr></thead>
+                <tbody id="sentHist"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ตั้งค่าโดเนท (สตรีมเมอร์) -->
+        <section class="tab-panel" data-panel="settings">
+          <div class="card">
+            <h2>Overlay สำหรับ OBS Studio</h2>
+            <p class="muted">ใน OBS เพิ่ม <b>Source → Browser</b> แล้ววาง URL นี้ (แนะนำ Width 1920 / Height 1080, พื้นหลังโปร่งใส):</p>
+            <code class="box" id="overlayUrl"></code>
+            <div class="row" style="margin-top:10px">
+              <button class="sm" id="copyOverlay">คัดลอก URL</button>
+              <button class="sm ghost" id="rotateOverlay">สร้าง URL ใหม่ (ยกเลิกอันเก่า)</button>
+              <a class="btn sm ghost" id="openOverlay" target="_blank">เปิดหน้าทดสอบ</a>
+            </div>
+          </div>
+
+          <div class="card">
+            <h2>ทดสอบการแจ้งเตือนไปที่ Overlay</h2>
+            <div class="row">
+              <input id="tAmount" type="number" value="99" style="max-width:110px">
+              <input id="tName" placeholder="ชื่อผู้ส่ง" style="max-width:150px">
+              <select id="tSticker" style="max-width:170px"></select>
+              <button id="tGo">ส่งทดสอบ</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <h2>ตั้งค่าโดเนทของฉัน</h2>
+            <div class="grid c2">
+              <div><label>ระยะเวลาแสดงแจ้งเตือน (มิลลิวินาที)</label><input id="s_dur" type="number"></div>
+              <div><label>ยอดขั้นต่ำที่จะแสดงแจ้งเตือน</label><input id="s_minalert" type="number"></div>
+              <div><label>โดเนทขั้นต่ำ (บาท)</label><input id="s_min" type="number"></div>
+              <div><label>โดเนทสูงสุด (บาท)</label><input id="s_max" type="number"></div>
+              <div><label>สีหลัก (accent) เช่น #ffffff</label><input id="s_accent" type="text"></div>
+              <div><label>สีข้อความ เช่น #ffffff</label><input id="s_text" type="text"></div>
+              <div><label>สีพื้นหลังกล่อง</label><input id="s_bg" type="text"></div>
+              <div><label>รูปแบบหัวข้อ (ใช้ {name} และ {amount})</label><input id="s_title" type="text"></div>
+            </div>
+            <div class="row" style="margin-top:10px">
+              <label class="row" style="margin:0"><input type="checkbox" id="s_sound" style="width:auto"> เสียงแจ้งเตือน</label>
+              <label class="row" style="margin:0"><input type="checkbox" id="s_tts" style="width:auto"> อ่านข้อความออกเสียง (TTS)</label>
+            </div>
+            <div style="margin-top:14px"><button id="saveSettings">บันทึกการตั้งค่า</button></div>
+          </div>
+        </section>
+
+        <!-- รับเงิน & รายได้ (สตรีมเมอร์) -->
+        <section class="tab-panel" data-panel="earnings">
+          <div class="card">
+            <h2>รายได้ & ถอนเงิน</h2>
+            <p class="muted">รายได้คงเหลือ: <b id="earn2">0</b> บาท</p>
+            <div class="row">
+              <input id="pAmount" type="number" placeholder="จำนวน (ขั้นต่ำ 100)" style="max-width:170px">
+              <input id="pAcc" placeholder="เลขบัญชี / พร้อมเพย์" style="max-width:220px">
+              <button id="pGo">ขอถอนเงิน</button>
+            </div>
+            <div class="tablewrap">
+              <table style="margin-top:12px">
+                <thead><tr><th>เวลา</th><th>จำนวน</th><th>สถานะ</th></tr></thead>
+                <tbody id="payoutHist"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="card">
+            <h2>โดเนทที่ได้รับ</h2>
+            <div class="tablewrap">
+              <table>
+                <thead><tr><th>เวลา</th><th>ผู้ส่ง</th><th>จำนวน</th><th>รับสุทธิ</th><th>ข้อความ</th></tr></thead>
+                <tbody id="recvHist"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- หน้าจัดการ / สถิติ (สตรีมเมอร์) -->
+        <section class="tab-panel" data-panel="stats">
+          <div class="card">
+            <h2>สถิติภาพรวม</h2>
+            <div class="grid c3" id="statTiles"></div>
+            <p class="muted" style="margin-top:12px">
+              "ผู้เข้าชม" คือจำนวนครั้งที่มีคนเปิดหน้าโดเนทของคุณจากเว็บนี้ (นับตอนเลือกคุณในหน้าส่งโดเนท)
+              ไม่ใช่ยอดผู้ชมสตรีมสดจริง — ใช้ประเมิน "อัตราการโดเนท" คร่าว ๆ ได้
+            </p>
+          </div>
+
+          <div class="card">
+            <div class="row" style="justify-content:space-between;align-items:center">
+              <h2 style="margin:0">แนวโน้ม</h2>
+              <div class="row">
+                <div class="seg" id="metricSeg">
+                  <button data-metric="revenue" class="active">รายได้</button>
+                  <button data-metric="donations">จำนวนโดเนท</button>
+                  <button data-metric="views">ผู้เข้าชม</button>
+                </div>
+                <div class="seg" id="rangeSeg">
+                  <button data-days="7">7 วัน</button>
+                  <button data-days="14" class="active">14 วัน</button>
+                  <button data-days="30">30 วัน</button>
+                </div>
+              </div>
+            </div>
+            <div class="chart-wrap" id="trendChart"></div>
+            <div style="margin-top:10px"><button class="sm ghost" id="toggleTrendTable">ดูข้อมูลเป็นตาราง</button></div>
+            <div class="tablewrap" id="trendTableWrap" hidden style="margin-top:10px">
+              <table>
+                <thead><tr><th>วันที่</th><th>รายได้</th><th>จำนวนโดเนท</th><th>ผู้เข้าชม</th></tr></thead>
+                <tbody id="trendTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- อันดับผู้โดเนท (สตรีมเมอร์) -->
+        <section class="tab-panel" data-panel="leaderboard">
+          <div class="card">
+            <h2>อันดับผู้โดเนท</h2>
+            <p class="muted">เรียงจากยอดโดเนทสะสมมากไปน้อย</p>
+            <div class="tablewrap">
+              <table>
+                <thead><tr><th>#</th><th>ผู้โดเนท</th><th>ยอดรวม</th><th>จำนวนครั้ง</th></tr></thead>
+                <tbody id="donorRank"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- จัดการบัญชี -->
+        <section class="tab-panel" data-panel="account">
+          <div class="card">
+            <h2>จัดการบัญชี</h2>
+            <div class="avatar-row">
+              <img id="avatarPreview" class="avatar-img" alt="" hidden>
+              <div id="avatarFallback" class="avatar-fallback"></div>
+              <div>
+                <label class="btn sm ghost" for="avatarInput" style="margin:0;display:inline-block">เปลี่ยนรูปโปรไฟล์</label>
+                <input id="avatarInput" type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden>
+                <div class="muted" style="margin-top:6px">รองรับ PNG, JPG, WEBP, GIF ขนาดไม่เกิน 3MB</div>
+              </div>
+            </div>
+            <div style="margin-top:16px">
+              <div class="balance" id="acctDisplayName" style="font-size:20px"></div>
+              <div class="muted" id="acctRoleLabel"></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <h2>ข้อมูลบัญชี</h2>
+            <label>Username</label>
+            <input id="acctUsername" disabled title="เปลี่ยนไม่ได้">
+
+            <label>อีเมล</label>
+            <div class="row">
+              <input id="acctEmail" type="email" style="flex:1;min-width:200px">
+              <button class="sm" id="saveEmail">บันทึกอีเมล</button>
+            </div>
+            <div id="emailOut" class="muted" style="margin-top:6px"></div>
+
+            <label>ชื่อที่แสดง (ใช้แสดงตอนโดเนท)</label>
+            <div class="row">
+              <input id="dispName" style="flex:1;min-width:200px">
+              <button class="sm" id="saveName">บันทึก</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <h2>ข้อมูลผู้ใช้งาน</h2>
+            <p class="muted">ข้อมูลส่วนนี้ไม่บังคับกรอก จะใส่หรือไม่ใส่ก็ได้</p>
+
+            <label>ชื่อจริง</label>
+            <input id="p_first">
+            <label>นามสกุล</label>
+            <input id="p_last">
+            <label>เลขบัตรประชาชน</label>
+            <input id="p_nid" maxlength="13" inputmode="numeric">
+            <label>วันเกิด</label>
+            <input id="p_dob" type="date">
+            <label>ที่อยู่ (บ้านเลขที่ / หมู่ / ถนน)</label>
+            <input id="p_addr">
+            <label>ตำบล/แขวง</label>
+            <input id="p_subdistrict">
+            <label>อำเภอ/เขต</label>
+            <input id="p_district">
+            <label>จังหวัด</label>
+            <input id="p_province">
+            <label>รหัสไปรษณีย์</label>
+            <input id="p_zip" maxlength="5" inputmode="numeric">
+
+            <div style="margin-top:14px"><button id="saveProfile">บันทึกข้อมูลผู้ใช้งาน</button></div>
+          </div>
+
+          <div class="card">
+            <h2>เปลี่ยนรหัสผ่าน</h2>
+            <label>รหัสผ่านปัจจุบัน</label>
+            <input id="pwCur" type="password">
+            <label>รหัสผ่านใหม่</label>
+            <input id="pwNew" type="password">
+            <label>ยืนยันรหัสผ่านใหม่</label>
+            <input id="pwConfirm" type="password">
+            <div style="margin-top:14px"><button id="savePw">เปลี่ยนรหัสผ่าน</button></div>
+          </div>
+        </section>
+
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/dashboard.js"></script>
+</body>
+</html>

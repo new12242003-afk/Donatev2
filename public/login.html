@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>เข้าสู่ระบบ · Donate Stream</title>
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+  <script src="/js/common.js"></script>
+  <div class="container" style="max-width:460px">
+    <div class="card">
+      <h2>เข้าสู่ระบบ</h2>
+      <div id="note" class="muted" style="margin-bottom:6px"></div>
+      <label>ชื่อผู้ใช้ หรือ อีเมล</label>
+      <input id="username" autocomplete="username">
+      <label>รหัสผ่าน</label>
+      <input id="password" type="password" autocomplete="current-password">
+      <div style="margin-top:16px" class="row">
+        <button id="go">เข้าสู่ระบบ</button>
+        <a id="gbtn" class="btn ghost" href="/auth/google" style="display:none">เข้าสู่ระบบด้วย Google</a>
+      </div>
+      <p class="muted" style="margin-top:10px">ยังไม่มีบัญชี? <a href="/register.html">สมัครสมาชิก</a></p>
+      <p class="muted">ยังไม่ได้รับอีเมลยืนยัน? <a href="#" id="resend">ส่งลิงก์ยืนยันอีกครั้ง</a></p>
+    </div>
+  </div>
+
+  <script>
+    mountNav(null);
+    const qs = new URLSearchParams(location.search);
+    const note = document.getElementById('note');
+    if (qs.get('verify') === 'ok') note.textContent = '✅ ยืนยันอีเมลเรียบร้อย เข้าสู่ระบบได้เลย';
+    if (qs.get('verify') === 'expired') note.textContent = '⚠️ ลิงก์ยืนยันหมดอายุ กรุณาขอลิงก์ใหม่';
+    if (qs.get('google') === 'fail') note.textContent = '⚠️ เข้าสู่ระบบด้วย Google ไม่สำเร็จ';
+
+    api('/auth/config').then((c) => { if (c.googleEnabled) document.getElementById('gbtn').style.display = ''; });
+
+    document.getElementById('go').onclick = async () => {
+      try {
+        await api('/auth/login', {
+          method: 'POST',
+          body: { username: username.value, password: password.value },
+        });
+        location.href = '/dashboard.html';
+      } catch (e) { toast(e.message, false); }
+    };
+
+    document.getElementById('resend').onclick = async (ev) => {
+      ev.preventDefault();
+      try {
+        const r = await api('/auth/resend', { method: 'POST', body: { username: username.value } });
+        toast(r.mailSent ? 'ส่งอีเมลแล้ว' : 'ดูลิงก์ยืนยันด้านล่าง');
+        if (r.devLink) note.innerHTML = 'ลิงก์ยืนยัน: <a href="' + r.devLink + '">' + r.devLink + '</a>';
+      } catch (e) { toast(e.message, false); }
+    };
+  </script>
+</body>
+</html>

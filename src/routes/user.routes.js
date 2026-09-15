@@ -1,0 +1,109 @@
+const fs = require('fs');
+const path = require('path');
+const express = require('express');
+const bcrypt = require('bcryptjs');
+const { db } = require('../db');
+const { requireAuth, publicUser } = require('../auth');
+const { token, now, clean } = require('../util');
+const { sendVerifyEmail } = require('../mailer');
+
+const router = express.Router();
+router.use(requireAuth);
+
+const BASE_URL = process.env.BASE_URL || 'http://localhost:' + (process.env.PORT || 3000);
+const VERIFY_TTL = 24 * 3600 * 1000;
+const AVATAR_DIR = path.join(__dirname, '..', '..', 'public', 'uploads', 'avatars');
+fs.mkdirSync(AVATAR_DIR, { recursive: true });
+
+router.get('/', (req, res) => res.json(publicUser(req.user)));
+
+router.patch('/', (req, res) => {
+  // username เป็นข้อมูลถาวรของบัญชี แก้ไขไม่ได้แม้จะส่งมาใน body
+  const b = req.body || {};
+  const dn = clean(b.display_name || '', 40);
+  if (dn) db.prepare('UPDATE users SET display_name = ? WHERE id = ?').run(dn, req.user.id);
+
+  // ข้อมูลผู้ใช้งาน — ไม่บังคับกรอก เก็บเป็นค่าว่างได้ / ฟิลด์ที่ไม่ได้ส่งมาจะคงค่าเดิมไว้
+  const pick = (key, max, digitsOnly) => {
+    if (b[key] === undefined) return req.user[key] || '';
+    let v = clean(b[key] || '', max);
+    if (digitsOnly) v = v.replace(/[^0-9]/g, '');
+    return v;
+  };
+  db.prepare(`UPDATE users SET
+      first_name = ?, last_name = ?, national_id = ?, birth_date = ?,
+      address_line = ?, address_subdistrict = ?, address_district = ?,
+      address_province = ?, address_zipcode = ?
+    WHERE id = ?`).run(
+    pick('first_name', 60), pick('last_name', 60),
+    pick('national_id', 13, true), pick('birth_date', 10),
+    pick('address_line', 200), pick('address_subdistrict', 60),
+    pick('address_district', 60), pick('address_province', 60),
+    pick('address_zipcode', 10, true),
+    req.user.id);
+
+  res.json({ ok: true });
+});
+
+router.post('/email', async (req, res) => {
+  const email = String(req.body.email || '').trim().toLowerCase();
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return res.status(400).json({ error: 'รูปแบบอีเมลไม่ถูกต้อง' });
+  if (email === req.user.email) return res.json({ ok: true, unchanged: true });
+  if (db.prepare('SELECT 1 FROM users WHERE email = ? AND id != ?').get(email, req.user.id)) {
+    return res.status(409).json({ error: 'อีเมลนี้ถูกใช้แล้ว' });
+  }
+
+  const vtoken = token(24);
+  db.prepare('UPDATE users SET email = ?, email_verified = 0, verify_token = ?, verify_expires = ? WHERE id = ?')
+    .run(email, vtoken, now() + VERIFY_TTL, req.user.id);
+
+  const link = `${BASE_URL}/auth/verify?token=${vtoken}`;
+  const r = await sendVerifyEmail(email, link).catch((e) => ({ sent: false, error: e.message }));
+  res.json({ ok: true, mailSent: !!r.sent, devLink: r.sent ? undefined : link });
+});
+
+router.post('/avatar', (req, res) => {
+  const data = String(req.body.image || '');
+  const m = /^data:image\/(png|jpe?g|webp|gif);base64,([a-zA-Z0-9+/=]+)$/.exec(data);
+  if (!m) return res.status(400).json({ error: 'รูปภาพไม่ถูกต้อง (รองรับ PNG, JPG, WEBP, GIF)' });
+
+  const buf = Buffer.from(m[2], 'base64');
+  if (buf.length > 3 * 1024 * 1024) return res.status(400).json({ error: 'ไฟล์ใหญ่เกินไป (สูงสุด 3MB)' });
+
+  const ext = m[1] === 'jpeg' ? 'jpg' : m[1];
+  const filename = `u${req.user.id}-${Date.now()}.${ext}`;
+  fs.writeFileSync(path.join(AVATAR_DIR, filename), buf);
+  const url = '/uploads/avatars/' + filename;
+  db.prepare('UPDATE users SET avatar_url = ? WHERE id = ?').run(url, req.user.id);
+
+  const old = req.user.avatar_url;
+  if (old && old.startsWith('/uploads/avatars/')) {
+    fs.unlink(path.join(__dirname, '..', '..', 'public', old.replace(/^\//, '')), () => {});
+  }
+  res.json({ ok: true, avatar_url: url });
+});
+
+router.post('/password', (req, res) => {
+  const { current, next } = req.body;
+  if (!req.user.password_hash) return res.status(400).json({ error: 'บัญชี Google ยังไม่มีรหัสผ่าน (ตั้งใหม่ได้เลย)' });
+  if (req.user.password_hash && !bcrypt.compareSync(String(current || ''), req.user.password_hash)) {
+    return res.status(401).json({ error: 'รหัสผ่านเดิมไม่ถูกต้อง' });
+  }
+  if (String(next || '').length < 6) return res.status(400).json({ error: 'รหัสผ่านใหม่อย่างน้อย 6 ตัว' });
+  db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(bcrypt.hashSync(next, 10), req.user.id);
+  res.json({ ok: true });
+});
+
+router.post('/become-streamer', (req, res) => {
+  if (req.user.role === 'admin') return res.status(400).json({ error: 'บัญชีแอดมินใช้งาน Overlay ได้อยู่แล้ว' });
+  const key = req.user.overlay_key || token(20);
+  db.prepare("UPDATE users SET role = 'streamer', overlay_key = ? WHERE id = ?").run(key, req.user.id);
+  db.prepare('INSERT OR IGNORE INTO streamer_settings (user_id, updated_at) VALUES (?, ?)').run(req.user.id, now());
+  res.json({ ok: true });
+});
+
+router.get('/transactions', (req, res) => {
+  res.json(db.prepare('SELECT * FROM transactions WHERE user_id = ? ORDER BY id DESC LIMIT 100').all(req.user.id));
+});
+
+module.exports = router;

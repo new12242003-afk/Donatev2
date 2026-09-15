@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>สมัครสมาชิก · Donate Stream</title>
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+  <script src="/js/common.js"></script>
+  <div class="container" style="max-width:460px">
+    <div class="card">
+      <h2>สมัครสมาชิก</h2>
+      <label>ชื่อผู้ใช้ (username)</label>
+      <input id="username" autocomplete="username" placeholder="a-z, 0-9, _ (3-20 ตัว)">
+      <label>อีเมล (ใช้ Gmail เพื่อรับลิงก์ยืนยัน)</label>
+      <input id="email" type="email" autocomplete="email">
+      <label>รหัสผ่าน (อย่างน้อย 6 ตัว)</label>
+      <input id="password" type="password" autocomplete="new-password">
+      <label>ประเภทบัญชี</label>
+      <select id="role">
+        <option value="donor">ผู้โดเนท — เติมเงินและโดเนทให้สตรีมเมอร์</option>
+        <option value="streamer">สตรีมเมอร์ — รับโดเนท + ใช้ Overlay ใน OBS</option>
+      </select>
+      <div style="margin-top:16px"><button id="go">สมัครสมาชิก</button></div>
+      <p class="muted" style="margin-top:10px">มีบัญชีแล้ว? <a href="/login.html">เข้าสู่ระบบ</a></p>
+      <div id="out" class="muted" style="margin-top:8px"></div>
+    </div>
+  </div>
+
+  <script>
+    mountNav(null);
+    document.getElementById('go').onclick = async () => {
+      try {
+        const body = ['username', 'email', 'password', 'role']
+          .reduce((a, k) => (a[k] = document.getElementById(k).value, a), {});
+        const r = await api('/auth/register', { method: 'POST', body });
+        const out = document.getElementById('out');
+        if (r.mailSent) {
+          out.innerHTML = '✅ ส่งลิงก์ยืนยันไปที่อีเมลแล้ว กรุณาตรวจสอบกล่องจดหมาย (รวมถึง Spam)';
+        } else {
+          out.innerHTML = '✅ สมัครสำเร็จ (ยังไม่ได้ตั้งค่าอีเมล) — คลิกลิงก์นี้เพื่อยืนยัน:<br>'
+            + '<a href="' + r.devLink + '">' + r.devLink + '</a>';
+        }
+        toast('สมัครสมาชิกสำเร็จ');
+      } catch (e) { toast(e.message, false); }
+    };
+  </script>
+</body>
+</html>

@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Donate Stream</title>
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+  <script src="/js/common.js"></script>
+  <div class="container">
+    <div class="card" style="text-align:center">
+      <h1 style="font-size:30px;margin:.2em 0">◆ Donate Stream</h1>
+      <p class="muted">แพลตฟอร์มโดเนทสำหรับสตรีมเมอร์ — เชื่อมต่อ OBS Studio แสดงผลบนจอไลฟ์สด<br>พร้อมข้อความ ชื่อผู้ส่ง และสติกเกอร์แอนิเมชัน</p>
+      <div class="row" style="justify-content:center;margin-top:14px">
+        <a class="btn" href="/register.html">สมัครสมาชิก</a>
+        <a class="btn ghost" href="/login.html">เข้าสู่ระบบ</a>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>สตรีมเมอร์ในระบบ</h2>
+      <div id="streamers" class="grid c3"></div>
+    </div>
+
+    <div class="card">
+      <h2>ฟีเจอร์หลัก</h2>
+      <ul class="muted">
+        <li>สมัคร/เข้าสู่ระบบด้วย username + password ยืนยันตัวตนผ่านอีเมล (Gmail) และ "เข้าสู่ระบบด้วย Google"</li>
+        <li>เติมเงินเข้าเว็บไซต์ — 20 บาท = 20 Token (1:1)</li>
+        <li>โดเนท 1–1,000 บาท พร้อมชื่อผู้ส่ง ข้อความ และสติกเกอร์หลายแบบ</li>
+        <li>Overlay สำหรับ OBS Browser Source แสดงผลแบบเรียลไทม์ (Socket.IO)</li>
+        <li>3 บทบาท: แอดมิน (ดูแลทั้งระบบ) / สตรีมเมอร์ (ปรับแต่งโดเนทของตัวเอง) / ผู้โดเนท</li>
+      </ul>
+    </div>
+  </div>
+
+  <script>
+    (async () => {
+      const me = await getMe();
+      mountNav(me);
+      const box = document.getElementById('streamers');
+      const list = await api('/api/public/streamers').catch(() => []);
+      if (!list.length) { box.innerHTML = '<p class="muted">ยังไม่มีสตรีมเมอร์</p>'; return; }
+      list.forEach((x) => {
+        const c = el('div', { class: 'card' });
+        const row = el('div', { class: 'row', style: 'align-items:center;flex-wrap:nowrap' });
+        row.append(x.avatar_url
+          ? el('img', { class: 'streamer-avatar', src: x.avatar_url, alt: '' })
+          : el('span', { class: 'streamer-avatar streamer-avatar-fallback' },
+              (x.display_name || x.username || '?').trim().charAt(0).toUpperCase()));
+        row.append(el('div', {},
+          el('div', { style: 'font-weight:700' }, x.display_name || x.username),
+          el('div', { class: 'muted' }, '@' + x.username)));
+        c.append(row);
+        c.append(el('div', { style: 'margin-top:12px' },
+          el('a', { class: 'btn sm', href: '/dashboard.html?to=' + encodeURIComponent(x.username) }, 'โดเนท')));
+        box.append(c);
+      });
+    })();
+  </script>
+</body>
+</html>

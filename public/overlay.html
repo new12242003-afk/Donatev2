@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <title>Donate Overlay · OBS</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; font-family: 'Segoe UI', Tahoma, sans-serif; }
+
+    #alert {
+      position: fixed; left: 50%; top: 11%;
+      transform: translateX(-50%) translateY(-40px);
+      opacity: 0; transition: opacity .4s ease, transform .4s ease;
+      min-width: 420px; max-width: 72vw; padding: 22px 30px; border-radius: 20px;
+      background: var(--bg, rgba(15, 15, 25, .92)); color: var(--text, #fff); text-align: center;
+      box-shadow: 0 24px 70px rgba(0, 0, 0, .55); border: 3px solid var(--accent, #ffffff);
+    }
+    #alert.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    #title { font-size: 30px; font-weight: 800; color: var(--accent, #ffffff); text-shadow: 0 2px 12px rgba(0, 0, 0, .45); }
+    #msg { font-size: 27px; opacity: .96; margin-top: 8px; word-wrap: break-word; }
+
+    .layer { position: fixed; inset: 0; pointer-events: none; overflow: hidden; }
+    .st { position: absolute; will-change: transform, opacity; }
+    .st img { width: 72px; height: auto; display: block; }
+
+    @keyframes float  { 0% { transform: translateY(20px); opacity: 0 } 12% { opacity: 1 } 100% { transform: translateY(-112vh); opacity: 0 } }
+    @keyframes rain   { 0% { transform: translateY(-20vh) rotate(0); opacity: 0 } 12% { opacity: 1 } 100% { transform: translateY(115vh) rotate(360deg); opacity: 0 } }
+    @keyframes bounce { 0%, 100% { transform: translateY(0) } 50% { transform: translateY(-70px) } }
+    @keyframes zoom   { 0% { transform: scale(0); opacity: 0 } 20% { transform: scale(1.4); opacity: 1 } 60% { transform: scale(1) } 100% { transform: scale(2.4); opacity: 0 } }
+    @keyframes spin   { 0% { transform: rotate(0) scale(0) } 20% { transform: rotate(180deg) scale(1.2) } 100% { transform: rotate(1440deg) scale(0); opacity: 0 } }
+    @keyframes fly    { 0% { transform: translate(-24vw, 22vh) rotate(-18deg); opacity: 0 } 10% { opacity: 1 } 100% { transform: translate(124vw, -62vh) rotate(18deg); opacity: 0 } }
+    @keyframes shake  { 0%, 100% { transform: translateX(0) } 20% { transform: translateX(-34px) } 40% { transform: translateX(30px) } 60% { transform: translateX(-22px) } 80% { transform: translateX(18px) } }
+  </style>
+</head>
+<body>
+  <div class="layer" id="layer"></div>
+  <div id="alert"><div id="title"></div><div id="msg"></div></div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const key = location.pathname.split('/').filter(Boolean).pop();
+    const box = document.getElementById('alert');
+    const layer = document.getElementById('layer');
+    let cfg = { accent: '#ffffff', text: '#fff', bg: 'rgba(10,10,11,.92)', duration: 8000, sound: true, tts: false, tts_lang: 'th-TH' };
+    let queue = [], busy = false;
+
+    fetch('/api/public/overlay/' + key)
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.error) { document.body.innerHTML = '<p style="color:#f87171;font-family:sans-serif">Overlay key ไม่ถูกต้อง</p>'; return; }
+        cfg = Object.assign(cfg, d.settings);
+        applyVars(cfg);
+      })
+      .catch(() => {});
+
+    function applyVars(s) {
+      box.style.setProperty('--bg', s.bg);
+      box.style.setProperty('--text', s.text);
+      box.style.setProperty('--accent', s.accent);
+    }
+
+    const socket = io();
+    socket.on('connect', () => socket.emit('overlay:join', key));
+    socket.on('overlay:error', () => console.warn('overlay key invalid'));
+    socket.on('donation', (d) => {
+      if (d.settings && d.settings.show === false) return;
+      queue.push(d);
+      pump();
+    });
+
+    function pump() {
+      if (busy || !queue.length) return;
+      busy = true;
+      const d = queue.shift();
+      const s = Object.assign({}, cfg, d.settings || {});
+      applyVars(s);
+
+      document.getElementById('title').textContent = s.title || (d.display_name + ' โดเนท ฿' + Number(d.amount).toLocaleString('th-TH'));
+      document.getElementById('msg').textContent = d.message || '';
+      box.classList.add('show');
+
+      if (d.sticker) spawnStickers(d.sticker);
+      if (s.sound) beep();
+      if (s.tts && d.message && 'speechSynthesis' in window) {
+        try {
+          const u = new SpeechSynthesisUtterance((d.display_name ? d.display_name + ' พูดว่า ' : '') + d.message);
+          u.lang = s.tts_lang || 'th-TH';
+          speechSynthesis.speak(u);
+        } catch (_) {}
+      }
+
+      const dur = Math.max(2500, Number(s.duration) || 8000);
+      setTimeout(() => {
+        box.classList.remove('show');
+        setTimeout(() => { busy = false; pump(); }, 650);
+      }, dur);
+    }
+
+    function spawnStickers(st) {
+      const anim = st.animation || 'float';
+      const count = anim === 'rain' ? 26 : anim === 'float' ? 16 : anim === 'fly' ? 10 : 8;
+      for (let i = 0; i < count; i++) {
+        const s = document.createElement('div');
+        s.className = 'st';
+        if (st.image_url) {
+          const img = document.createElement('img');
+          img.src = st.image_url;
+          s.append(img);
+        } else {
+          s.textContent = st.emoji || '⭐';
+          s.style.fontSize = (44 + Math.random() * 46) + 'px';
+        }
+        s.style.left = (Math.random() * 92) + 'vw';
+        s.style.top = (anim === 'rain' ? -10 : 55 + Math.random() * 35) + 'vh';
+        const dur = 2.4 + Math.random() * 3;
+        s.style.animation = anim + ' ' + dur + 's ease-in ' + (Math.random() * 0.8) + 's 1 forwards';
+        layer.append(s);
+        setTimeout(() => s.remove(), (dur + 1.4) * 1000);
+      }
+    }
+
+    let actx;
+    function beep() {
+      try {
+        actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+        const o = actx.createOscillator();
+        const g = actx.createGain();
+        o.connect(g); g.connect(actx.destination);
+        o.type = 'sine';
+        o.frequency.setValueAtTime(660, actx.currentTime);
+        o.frequency.setValueAtTime(880, actx.currentTime + 0.12);
+        g.gain.setValueAtTime(0.0001, actx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.3, actx.currentTime + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + 0.55);
+        o.start();
+        o.stop(actx.currentTime + 0.55);
+      } catch (_) {}
+    }
+  </script>
+</body>
+</html>

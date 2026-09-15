@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>แอดมิน · Donate Stream</title>
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+  <script src="/js/common.js"></script>
+  <div class="container">
+    <div class="card"><h2>ภาพรวมระบบ</h2><div id="stats" class="grid c3"></div></div>
+
+    <div class="card">
+      <h2>จัดการผู้ใช้งาน</h2>
+      <div class="row" style="margin-bottom:10px">
+        <input id="q" placeholder="ค้นหา username / email" style="max-width:260px">
+        <button class="sm" id="search">ค้นหา</button>
+      </div>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>ID</th><th>Username</th><th>Email</th><th>บทบาท</th><th>Token</th><th>รายได้</th><th>ยืนยัน</th><th>สถานะ</th><th>จัดการ</th></tr></thead>
+          <tbody id="users"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>จัดการสติกเกอร์</h2>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>code</th><th>ชื่อ</th><th>emoji</th><th>ราคา</th><th>animation</th><th>เปิด</th><th></th></tr></thead>
+          <tbody id="stickers"></tbody>
+        </table>
+      </div>
+      <h3>เพิ่มสติกเกอร์ใหม่</h3>
+      <div class="row">
+        <input id="ns_code" placeholder="code" style="max-width:110px">
+        <input id="ns_name" placeholder="ชื่อ" style="max-width:130px">
+        <input id="ns_emoji" placeholder="emoji" style="max-width:80px">
+        <input id="ns_cost" type="number" placeholder="ราคา" style="max-width:90px">
+        <select id="ns_anim" style="max-width:120px">
+          <option>float</option><option>rain</option><option>bounce</option>
+          <option>zoom</option><option>spin</option><option>fly</option><option>shake</option>
+        </select>
+        <button class="sm" id="addSticker">เพิ่ม</button>
+      </div>
+      <p class="muted">animation: float=ลอยขึ้น, rain=ตกลงมา, bounce=เด้ง, zoom=ซูม, spin=หมุน, fly=บินข้าม, shake=สั่น</p>
+    </div>
+
+    <div class="card">
+      <h2>ตั้งค่าระบบ</h2>
+      <div class="grid c2">
+        <div><label>ชื่อเว็บไซต์</label><input id="c_site"></div>
+        <div><label>ค่าธรรมเนียมแพลตฟอร์ม (%)</label><input id="c_fee" type="number"></div>
+        <div><label>โดเนทขั้นต่ำเริ่มต้น (บาท)</label><input id="c_min" type="number"></div>
+        <div><label>โดเนทสูงสุดเริ่มต้น (บาท)</label><input id="c_max" type="number"></div>
+        <div><label>แพ็กเกจเติมเงิน (JSON array)</label><input id="c_pkg"></div>
+      </div>
+      <div style="margin-top:12px"><button id="saveCfg">บันทึก</button></div>
+    </div>
+
+    <div class="card">
+      <h2>โดเนทล่าสุด</h2>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>เวลา</th><th>ผู้ส่ง</th><th>→ สตรีมเมอร์</th><th>จำนวน</th><th>สติกเกอร์</th><th>ข้อความ</th></tr></thead>
+          <tbody id="don"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>เติมเงินล่าสุด</h2>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>เวลา</th><th>ผู้ใช้</th><th>บาท</th><th>วิธี</th><th>สถานะ</th></tr></thead>
+          <tbody id="tp"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>คำขอถอนเงิน</h2>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>เวลา</th><th>ผู้ใช้</th><th>จำนวน</th><th>บัญชี</th><th>สถานะ</th><th>จัดการ</th></tr></thead>
+          <tbody id="po"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/admin.js"></script>
+</body>
+</html>
