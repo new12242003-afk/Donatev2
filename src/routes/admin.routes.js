@@ -2,7 +2,7 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const { db, setConfigValue } = require('../db');
 const { requireAuth, requireRole } = require('../auth');
-const { addLedger } = require('../wallet');
+const ledger = require('../ledger');
 const { now, clean, token } = require('../util');
 
 const router = express.Router();
@@ -52,10 +52,9 @@ router.post('/users/:id/adjust', (req, res) => {
   const delta = Math.floor(Number(req.body.delta));
   if (!field || !Number.isFinite(delta)) return res.status(400).json({ error: 'ข้อมูลไม่ถูกต้อง' });
 
-  db.prepare(`UPDATE users SET ${field} = ${field} + ? WHERE id = ?`).run(delta, u.id);
-  const bal = db.prepare(`SELECT ${field} v FROM users WHERE id = ?`).get(u.id).v;
-  addLedger(u.id, 'admin_adjust', delta, bal, 'admin', req.user.id, clean(req.body.note || 'ปรับยอดโดยแอดมิน', 100));
-  res.json({ ok: true, balance: bal });
+  const note = clean(req.body.note || 'ปรับยอดโดยแอดมิน', 100);
+  const balance = db.transaction(() => ledger.credit(u.id, field, delta, 'admin_adjust', 'admin', req.user.id, note))();
+  res.json({ ok: true, balance });
 });
 
 router.post('/users/:id/reset-password', (req, res) => {
@@ -147,9 +146,7 @@ router.post('/payouts/:id/process', (req, res) => {
     db.prepare('UPDATE payouts SET status=?, processed_at=?, note=? WHERE id=?')
       .run(status, now(), clean(req.body.note || '', 200), p.id);
     if (status === 'rejected') {
-      db.prepare('UPDATE users SET earnings_balance = earnings_balance + ? WHERE id = ?').run(p.amount, p.user_id);
-      const bal = db.prepare('SELECT earnings_balance v FROM users WHERE id = ?').get(p.user_id).v;
-      addLedger(p.user_id, 'withdraw_refund', p.amount, bal, 'payout', p.id, 'คืนยอดคำขอถอนที่ถูกปฏิเสธ');
+      ledger.credit(p.user_id, 'earnings_balance', p.amount, 'withdraw_refund', 'payout', p.id, 'คืนยอดคำขอถอนที่ถูกปฏิเสธ');
     }
   })();
   res.json({ ok: true });

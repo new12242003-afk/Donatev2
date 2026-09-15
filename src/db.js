@@ -166,6 +166,7 @@ function ensureColumn(table, col, decl) {
   ['address_district', 'TEXT'],
   ['address_province', 'TEXT'],
   ['address_zipcode', 'TEXT'],
+  ['nickname', 'TEXT'],
 ].forEach(([col, decl]) => ensureColumn('users', col, decl));
 
 // อัปเดตสีธีมเริ่มต้นของสตรีมเมอร์ที่ยังไม่เคยปรับแต่งเอง ให้เป็นโทนขาวดำพรีเมี่ยมใหม่

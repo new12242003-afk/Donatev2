@@ -1,7 +1,7 @@
 const express = require('express');
 const { db, getConfig } = require('../db');
 const { requireAuth, requireVerified } = require('../auth');
-const { addLedger } = require('../wallet');
+const ledger = require('../ledger');
 const { now, clean } = require('../util');
 
 const router = express.Router();
@@ -73,28 +73,22 @@ router.post('/', requireVerified, (req, res) => {
   let result;
   try {
     result = db.transaction(() => {
-      const donor = db.prepare('SELECT token_balance FROM users WHERE id = ?').get(req.user.id);
-      if (donor.token_balance < total) {
-        const e = new Error(`ยอด Token ไม่พอ (ต้องใช้ ${total}) กรุณาเติมเงิน`);
-        e.code = 'LOW';
-        throw e;
-      }
-      db.prepare('UPDATE users SET token_balance = token_balance - ? WHERE id = ?').run(total, req.user.id);
-      db.prepare('UPDATE users SET earnings_balance = earnings_balance + ? WHERE id = ?').run(credit, streamer.id);
-      const donorBal = db.prepare('SELECT token_balance FROM users WHERE id = ?').get(req.user.id).token_balance;
-      const strBal = db.prepare('SELECT earnings_balance FROM users WHERE id = ?').get(streamer.id).earnings_balance;
-
       const info = db.prepare(`INSERT INTO donations
         (donor_user_id, streamer_user_id, amount, display_name, message, sticker_code, sticker_cost, streamer_credit, platform_fee, total_cost, created_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
         req.user.id, streamer.id, amount, display_name, message, stickerCode, stickerCost, credit, fee, total, now());
 
-      addLedger(req.user.id, 'donation_sent', -total, donorBal, 'donation', info.lastInsertRowid, `โดเนทให้ @${streamer.username}`);
-      addLedger(streamer.id, 'donation_received', credit, strBal, 'donation', info.lastInsertRowid, `รับโดเนทจาก ${display_name}`);
-      return { id: info.lastInsertRowid, donorBal };
+      const { fromBalance } = ledger.transfer({
+        fromUserId: req.user.id, fromField: 'token_balance', fromAmount: total,
+        fromType: 'donation_sent', fromNote: `โดเนทให้ @${streamer.username}`,
+        toUserId: streamer.id, toField: 'earnings_balance', toAmount: credit,
+        toType: 'donation_received', toNote: `รับโดเนทจาก ${display_name}`,
+        refType: 'donation', refId: info.lastInsertRowid,
+      });
+      return { id: info.lastInsertRowid, donorBal: fromBalance };
     })();
   } catch (e) {
-    if (e.code === 'LOW') return res.status(400).json({ error: e.message });
+    if (e.code === 'INSUFFICIENT_BALANCE') return res.status(400).json({ error: `ยอด Token ไม่พอ (ต้องใช้ ${total}) กรุณาเติมเงิน` });
     console.error(e);
     return res.status(500).json({ error: 'เกิดข้อผิดพลาดในการโดเนท' });
   }

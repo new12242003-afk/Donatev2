@@ -44,6 +44,7 @@ function publicUser(u) {
     avatar_url: u.avatar_url || null,
     first_name: u.first_name || '',
     last_name: u.last_name || '',
+    nickname: u.nickname || '',
     national_id: u.national_id || '',
     birth_date: u.birth_date || '',
     address_line: u.address_line || '',

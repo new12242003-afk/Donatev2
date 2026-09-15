@@ -46,10 +46,38 @@ function roleLabel(r) {
   return r === 'admin' ? 'แอดมิน' : r === 'streamer' ? 'สตรีมเมอร์' : 'ผู้โดเนท';
 }
 
+const NAV_ICONS = {
+  home: '<path d="M4 11.5 12 4l8 7.5"/><path d="M6 10v9a1 1 0 0 0 1 1h3v-5h4v5h3a1 1 0 0 0 1-1v-9"/>',
+  topup: '<rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/><path d="M7 15h4"/>',
+  admin: '<path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3z"/>',
+};
+
+function navIcon(name) {
+  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${NAV_ICONS[name] || ''}</svg>`;
+}
+
+function navLink(href, icon, label, active) {
+  const a = el('a', { href, class: 'pill-item' + (active ? ' active' : '') });
+  a.append(el('span', { class: 'pill-item-ic', html: navIcon(icon) }), el('span', {}, label));
+  return a;
+}
+
 function mountNav(me) {
   const nav = el('header', { class: 'nav' });
-  nav.append(el('a', { href: '/', class: 'brand' }, '◆ Donate Stream'));
-  if (me && me.role === 'admin') nav.append(el('a', { href: '/admin.html' }, 'แอดมิน'));
+  const path = location.pathname;
+
+  nav.append(el('a', { href: '/', class: 'pill-logo' },
+    el('span', { class: 'pill-logo-mark' }, '◆'),
+    el('span', { class: 'pill-logo-text' },
+      el('span', { class: 'l1' }, 'Donate'),
+      el('span', { class: 'l2' }, 'Stream'))));
+
+  const items = el('nav', { class: 'pill-items' });
+  items.append(navLink('/', 'home', 'หน้าแรก', path === '/' || path === '/index.html'));
+  if (me) items.append(navLink('/topup.html', 'topup', 'เติมเงิน', path === '/topup.html'));
+  if (me && me.role === 'admin') items.append(navLink('/admin.html', 'admin', 'แอดมิน', path === '/admin.html'));
+  nav.append(items);
+
   nav.append(el('div', { class: 'sp' }));
   if (me) {
     const chip = el('a', { href: '/dashboard.html', class: 'user-chip', title: 'ไปที่แดชบอร์ด' });
@@ -62,12 +90,12 @@ function mountNav(me) {
       el('span', { class: 'user-chip-role' }, roleLabel(me.role))));
     nav.append(chip);
 
-    const b = el('button', { class: 'ghost sm' }, 'ออกจากระบบ');
+    const b = el('button', { class: 'pill-auth' }, 'ออกจากระบบ');
     b.onclick = logout;
     nav.append(b);
   } else {
-    nav.append(el('a', { href: '/login.html' }, 'เข้าสู่ระบบ'));
-    nav.append(el('a', { href: '/register.html' }, 'สมัครสมาชิก'));
+    nav.append(el('a', { href: '/login.html', class: 'pill-auth' }, 'เข้าสู่ระบบ'));
+    nav.append(el('a', { href: '/register.html', class: 'pill-auth pill-auth-primary' }, 'สมัครสมาชิก'));
   }
   document.body.prepend(nav);
 }

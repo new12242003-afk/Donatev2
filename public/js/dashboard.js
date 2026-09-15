@@ -18,6 +18,7 @@ let ME, STICKERS = [];
   renderAvatar();
   document.getElementById('p_first').value = ME.first_name || '';
   document.getElementById('p_last').value = ME.last_name || '';
+  document.getElementById('p_nickname').value = ME.nickname || '';
   document.getElementById('p_nid').value = ME.national_id || '';
   document.getElementById('p_dob').value = ME.birth_date || '';
   document.getElementById('p_addr').value = ME.address_line || '';
@@ -25,14 +26,7 @@ let ME, STICKERS = [];
   document.getElementById('p_district').value = ME.address_district || '';
   document.getElementById('p_province').value = ME.address_province || '';
   document.getElementById('p_zip').value = ME.address_zipcode || '';
-
-  const cfg = await api('/api/public/config');
-  const pkgBox = document.getElementById('pkgs');
-  cfg.topup_packages.forEach((v) => {
-    const b = el('button', { class: 'ghost sm' }, v + ' ฿');
-    b.onclick = () => doTopup(v, 'mock');
-    pkgBox.append(b);
-  });
+  await initAddressPicker();
 
   const streamers = await api('/api/public/streamers');
   const sel = document.getElementById('dStreamer');
@@ -55,8 +49,6 @@ let ME, STICKERS = [];
     sp.append(d);
   });
 
-  document.getElementById('topupGo').onclick = () =>
-    doTopup(Number(document.getElementById('topupAmt').value), document.getElementById('topupMethod').value);
   document.getElementById('dGo').onclick = sendDonation;
   document.getElementById('becomeStreamer').onclick = async () => {
     await api('/api/me/become-streamer', { method: 'POST' });
@@ -98,6 +90,7 @@ let ME, STICKERS = [];
         body: {
           first_name: document.getElementById('p_first').value,
           last_name: document.getElementById('p_last').value,
+          nickname: document.getElementById('p_nickname').value,
           national_id: document.getElementById('p_nid').value,
           birth_date: document.getElementById('p_dob').value,
           address_line: document.getElementById('p_addr').value,
@@ -145,21 +138,37 @@ let ME, STICKERS = [];
 })();
 
 // ---------- sidebar navigation ----------
+const MOBILE_NAV_MQ = window.matchMedia('(max-width: 780px)');
+
 function initTabs() {
   const items = document.querySelectorAll('.sidebar-item');
   items.forEach((btn) => (btn.onclick = () => switchTab(btn.dataset.tab)));
   window.addEventListener('hashchange', () => switchTab(location.hash.slice(1)));
+  MOBILE_NAV_MQ.addEventListener('change', () => switchTab(location.hash.slice(1)));
   switchTab(location.hash.slice(1));
 }
 
 function switchTab(tab) {
-  const items = [...document.querySelectorAll('.sidebar-item')];
-  let target = items.find((b) => b.dataset.tab === tab && b.style.display !== 'none');
-  if (!target) target = items.find((b) => b.style.display !== 'none');
-  tab = target.dataset.tab;
+  const panels = [...document.querySelectorAll('.tab-panel')];
+  if (!panels.some((p) => p.dataset.panel === tab)) {
+    const items = [...document.querySelectorAll('.sidebar-item')];
+    const target = items.find((b) => b.style.display !== 'none');
+    tab = target ? target.dataset.tab : panels[0].dataset.panel;
+  }
 
-  items.forEach((b) => b.classList.toggle('active', b === target));
-  document.querySelectorAll('.tab-panel').forEach((p) => (p.hidden = p.dataset.panel !== tab));
+  document.querySelectorAll('.sidebar-item').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
+  panels.forEach((p) => (p.hidden = p.dataset.panel !== tab));
+
+  // มือถือ: ย้ายเนื้อหาแท็บที่กำลังเปิดมาไว้ใต้ปุ่มเมนูที่กด แทนที่จะอยู่ท้ายสุดของเมนูทั้งหมด
+  const content = document.querySelector('.dash-content');
+  if (MOBILE_NAV_MQ.matches) {
+    const activePanel = panels.find((p) => p.dataset.panel === tab);
+    const btn = document.querySelector(`.sidebar-item[data-tab="${tab}"]`);
+    if (btn && activePanel) btn.insertAdjacentElement('afterend', activePanel);
+  } else {
+    panels.forEach((p) => { if (p.parentElement !== content) content.appendChild(p); });
+  }
+
   if (location.hash.slice(1) !== tab) history.replaceState(null, '', '#' + tab);
 }
 
@@ -233,28 +242,6 @@ async function sendSticker(sticker, node) {
   finally { document.querySelectorAll('#dStickers .s').forEach((n) => n.classList.remove('sending')); }
 }
 
-async function doTopup(amount, method) {
-  if (!amount || amount < 20) return toast('ขั้นต่ำ 20 บาท', false);
-  try {
-    const r = await api('/api/topup', { method: 'POST', body: { amount_baht: amount, method } });
-    const out = document.getElementById('topupOut');
-    if (r.status === 'paid') {
-      toast('เติมเงินสำเร็จ +' + r.tokens + ' Token');
-      out.textContent = '';
-      refreshBalance();
-    } else {
-      out.innerHTML = `รหัสอ้างอิง <b>${r.reference}</b> · ${esc(r.payment.note)} `
-        + `<button class="sm" id="confirmPay">ยืนยันการชำระ</button>`;
-      document.getElementById('confirmPay').onclick = async () => {
-        const c = await api('/api/topup/' + r.reference + '/confirm', { method: 'POST' });
-        toast('เติมเงินสำเร็จ +' + c.tokens + ' Token');
-        out.textContent = '';
-        refreshBalance();
-      };
-    }
-  } catch (e) { toast(e.message, false); }
-}
-
 async function refreshBalance() {
   ME = await getMe();
   document.getElementById('bal').textContent = fmt(ME.token_balance);
@@ -289,6 +276,7 @@ async function loadSent() {
 
 // ---------- streamer ----------
 async function initStreamer() {
+  document.getElementById('navSectionEarn').style.display = '';
   document.getElementById('navSettings').style.display = '';
   document.getElementById('navEarnings').style.display = '';
   document.getElementById('navStats').style.display = '';
@@ -595,4 +583,67 @@ function renderChart(trend, metric) {
     showAt(i);
   });
   overlay.addEventListener('pointerleave', hide);
+}
+
+let THAI_ADDR_FLAT = null;
+async function loadThaiAddrFlat() {
+  if (THAI_ADDR_FLAT) return THAI_ADDR_FLAT;
+  const geo = await fetch('/data/thai-geo.json').then((r) => r.json());
+  const flat = [];
+  geo.forEach((p) => p.districts.forEach((d) => d.subdistricts.forEach((s) => {
+    flat.push({ subdistrict: s.name, district: d.name, province: p.name, zip: String(s.zip) });
+  })));
+  THAI_ADDR_FLAT = flat;
+  return flat;
+}
+
+function addrLabel(item) {
+  return item.subdistrict + ' ' + item.district + ' - ' + item.province + ' - ' + item.zip;
+}
+
+async function initAddressPicker() {
+  const flat = await loadThaiAddrFlat();
+  const input = document.getElementById('p_addrSearch');
+  const box = document.getElementById('p_addrSuggest');
+  const provInp = document.getElementById('p_province');
+  const distInp = document.getElementById('p_district');
+  const subInp = document.getElementById('p_subdistrict');
+  const zipInp = document.getElementById('p_zip');
+
+  function pick(item) {
+    provInp.value = item.province;
+    distInp.value = item.district;
+    subInp.value = item.subdistrict;
+    zipInp.value = item.zip;
+    input.value = addrLabel(item);
+    box.hidden = true;
+  }
+
+  function search(q) {
+    box.innerHTML = '';
+    if (!q) { box.hidden = true; return; }
+    const needle = q.trim().toLowerCase();
+    const matches = flat.filter((it) =>
+      it.subdistrict.toLowerCase().includes(needle) ||
+      it.district.toLowerCase().includes(needle) ||
+      it.province.toLowerCase().includes(needle) ||
+      it.zip.includes(needle)
+    ).slice(0, 30);
+    if (!matches.length) {
+      box.append(el('div', { class: 'empty' }, 'ไม่พบที่อยู่ที่ตรงกัน'));
+    } else {
+      matches.forEach((it) => {
+        const opt = el('div', { class: 'opt' }, addrLabel(it));
+        opt.onmousedown = (e) => { e.preventDefault(); pick(it); };
+        box.append(opt);
+      });
+    }
+    box.hidden = false;
+  }
+
+  input.oninput = () => search(input.value);
+  input.onfocus = () => { if (input.value) search(input.value); };
+  document.addEventListener('click', (e) => {
+    if (e.target !== input) box.hidden = true;
+  });
 }

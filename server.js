@@ -7,6 +7,7 @@ const { Server } = require('socket.io');
 
 const { db } = require('./src/db');
 const { passport } = require('./src/google');
+const { SqliteSessionStore } = require('./src/sessionStore');
 
 const app = express();
 const server = http.createServer(app);
@@ -14,9 +15,14 @@ const io = new Server(server);
 app.set('io', io);
 app.set('trust proxy', 1);
 
+if (process.env.NODE_ENV === 'production' && !process.env.SESSION_SECRET) {
+  console.warn('[warn] ยังไม่ได้ตั้งค่า SESSION_SECRET ใน .env — ควรตั้งเป็นสตริงสุ่มยาวๆ ก่อนใช้งานจริง');
+}
+
 app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(session({
+  store: new SqliteSessionStore(),
   secret: process.env.SESSION_SECRET || 'dev-insecure-secret-change-me',
   resave: false,
   saveUninitialized: false,

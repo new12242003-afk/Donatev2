@@ -69,7 +69,8 @@ src/db.js              schema + seed (node:sqlite) + ตัวห่อ transact
 src/auth.js            middleware: requireAuth / requireVerified / requireRole
 src/mailer.js          ส่งอีเมลยืนยัน (Gmail / SMTP / โหมด dev)
 src/google.js          passport-google-oauth20 (เปิดเมื่อมี env)
-src/wallet.js          addLedger()
+src/ledger.js          credit() / debit() / transfer() — จุดเดียวที่แก้ยอดเงินผู้ใช้ + บันทึก ledger ทั้งเว็บ
+src/sessionStore.js    เก็บ session ผู้ใช้ในตาราง sessions ของ data.db (แทน memory)
 src/routes/*.js        auth, user, topup, donate, streamer, admin, public
 public/                หน้าเว็บ (vanilla JS) + overlay.html สำหรับ OBS
 data.db                ฐานข้อมูล SQLite (สร้างอัตโนมัติ)
@@ -77,7 +78,7 @@ data.db                ฐานข้อมูล SQLite (สร้างอั
 
 ## หมายเหตุ production
 
-- เปลี่ยน `SESSION_SECRET`, ตั้ง `COOKIE_SECURE=true` เมื่อใช้ HTTPS
-- session ปัจจุบันเก็บใน memory — ใช้ store ถาวร (เช่น `connect-sqlite3`) เมื่อขึ้นจริง
-- ต่อ payment gateway จริงแทนโหมดจำลอง
+- เปลี่ยน `SESSION_SECRET`, ตั้ง `COOKIE_SECURE=true` เมื่อใช้ HTTPS (ถ้าตั้ง `NODE_ENV=production` แล้วลืมตั้ง `SESSION_SECRET` ระบบจะเตือนใน log ตอนสตาร์ท)
+- session เก็บอยู่ในตาราง `sessions` ของ `data.db` แล้ว (ผ่าน `src/sessionStore.js`) ไม่ใช่ memory เหมือนก่อน — รอดจาก restart/deploy ได้โดยไม่ต้องเพิ่ม native dependency
+- ต่อ payment gateway จริงแทนโหมดจำลอง — จุดเชื่อมคือ `creditTopup()` ใน `src/routes/topup.routes.js` ซึ่งตอนนี้เรียกผ่าน `src/ledger.js` (จุดกลางที่รวมตรรกะเพิ่ม/หักยอดเงินทั้งหมดของเว็บไว้ที่เดียว)
 - พิจารณา rate-limit เพิ่มเติมและ CAPTCHA ที่หน้า register

@@ -1,7 +1,7 @@
 const express = require('express');
 const { db, getConfig } = require('../db');
 const { requireAuth, requireVerified } = require('../auth');
-const { addLedger } = require('../wallet');
+const ledger = require('../ledger');
 const { token, now } = require('../util');
 
 const router = express.Router();
@@ -20,9 +20,7 @@ function creditTopup(topupId) {
     const tp = db.prepare('SELECT * FROM topups WHERE id = ?').get(topupId);
     if (!tp || tp.status === 'paid') return tp;
     db.prepare('UPDATE topups SET status = ?, paid_at = ? WHERE id = ?').run('paid', now(), tp.id);
-    db.prepare('UPDATE users SET token_balance = token_balance + ? WHERE id = ?').run(tp.tokens, tp.user_id);
-    const bal = db.prepare('SELECT token_balance FROM users WHERE id = ?').get(tp.user_id).token_balance;
-    addLedger(tp.user_id, 'topup', tp.tokens, bal, 'topup', tp.id, `เติมเงิน ${tp.amount_baht} บาท`);
+    ledger.credit(tp.user_id, 'token_balance', tp.tokens, 'topup', 'topup', tp.id, `เติมเงิน ${tp.amount_baht} บาท`);
     return db.prepare('SELECT * FROM topups WHERE id = ?').get(tp.id);
   })();
 }

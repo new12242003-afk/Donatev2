@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>เติมเงิน · Donate Stream</title>
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+  <script src="/js/common.js"></script>
+  <div class="container" style="max-width:560px">
+
+    <div class="card">
+      <div class="muted">ยอด Token คงเหลือ (1 Token = 1 บาท)</div>
+      <div class="balance" id="bal">0</div>
+      <div id="verifyWarn" class="muted" style="display:none;margin-top:10px;color:#f87171">
+        ⚠️ ยังไม่ได้ยืนยันอีเมล — เติมเงินไม่ได้จนกว่าจะยืนยัน
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>เติมเงินเข้าเว็บไซต์</h2>
+      <div class="row" id="pkgs"></div>
+      <label>หรือระบุจำนวนเอง (บาท)</label>
+      <div class="row row-form">
+        <input id="topupAmt" type="number" min="20" placeholder="20" style="max-width:150px">
+        <select id="topupMethod" style="max-width:190px">
+          <option value="mock">ชำระทันที (จำลอง)</option>
+          <option value="promptpay">PromptPay QR (จำลอง)</option>
+        </select>
+        <button id="topupGo">เติมเงิน</button>
+      </div>
+      <div id="topupOut" class="muted" style="margin-top:8px"></div>
+    </div>
+
+  </div>
+  <script src="/js/topup.js"></script>
+</body>
+</html>

@@ -31,11 +31,11 @@ router.patch('/', (req, res) => {
     return v;
   };
   db.prepare(`UPDATE users SET
-      first_name = ?, last_name = ?, national_id = ?, birth_date = ?,
+      first_name = ?, last_name = ?, nickname = ?, national_id = ?, birth_date = ?,
       address_line = ?, address_subdistrict = ?, address_district = ?,
       address_province = ?, address_zipcode = ?
     WHERE id = ?`).run(
-    pick('first_name', 60), pick('last_name', 60),
+    pick('first_name', 60), pick('last_name', 60), pick('nickname', 40),
     pick('national_id', 13, true), pick('birth_date', 10),
     pick('address_line', 200), pick('address_subdistrict', 60),
     pick('address_district', 60), pick('address_province', 60),

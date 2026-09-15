@@ -1,7 +1,7 @@
 const express = require('express');
 const { db } = require('../db');
 const { requireAuth, requireRole } = require('../auth');
-const { addLedger } = require('../wallet');
+const ledger = require('../ledger');
 const { token, now, clean, clampInt } = require('../util');
 
 const router = express.Router();
@@ -152,16 +152,16 @@ router.post('/payout', (req, res) => {
   const account_detail = clean(req.body.account_detail || '', 200);
   if (amount < 100) return res.status(400).json({ error: 'ถอนขั้นต่ำ 100 บาท' });
 
-  const u = db.prepare('SELECT earnings_balance FROM users WHERE id = ?').get(req.user.id);
-  if (u.earnings_balance < amount) return res.status(400).json({ error: 'ยอดรายได้คงเหลือไม่พอ' });
-
-  db.transaction(() => {
-    db.prepare('UPDATE users SET earnings_balance = earnings_balance - ? WHERE id = ?').run(amount, req.user.id);
-    const bal = db.prepare('SELECT earnings_balance FROM users WHERE id = ?').get(req.user.id).earnings_balance;
-    const info = db.prepare(`INSERT INTO payouts (user_id, amount, method, account_detail, status, created_at)
-      VALUES (?, ?, ?, ?, 'pending', ?)`).run(req.user.id, amount, method, account_detail, now());
-    addLedger(req.user.id, 'withdraw', -amount, bal, 'payout', info.lastInsertRowid, 'ขอถอนเงิน');
-  })();
+  try {
+    db.transaction(() => {
+      const info = db.prepare(`INSERT INTO payouts (user_id, amount, method, account_detail, status, created_at)
+        VALUES (?, ?, ?, ?, 'pending', ?)`).run(req.user.id, amount, method, account_detail, now());
+      ledger.debit(req.user.id, 'earnings_balance', amount, 'withdraw', 'payout', info.lastInsertRowid, 'ขอถอนเงิน');
+    })();
+  } catch (e) {
+    if (e.code === 'INSUFFICIENT_BALANCE') return res.status(400).json({ error: 'ยอดรายได้คงเหลือไม่พอ' });
+    throw e;
+  }
   res.json({ ok: true });
 });
 

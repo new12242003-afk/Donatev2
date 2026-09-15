@@ -9,31 +9,66 @@ a:hover { color: var(--accent); }
 h1, h2, h3 { line-height: 1.3; letter-spacing: .2px; }
 
 header.nav {
-  display: flex; align-items: center; gap: 16px; padding: 13px 20px;
-  background: #0d0d0e; border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 20; flex-wrap: wrap;
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  background: #ffffff; border-radius: 999px;
+  padding: 8px 12px 8px 16px; margin: 14px 16px 22px;
+  position: sticky; top: 14px; z-index: 20;
+  box-shadow: 0 16px 34px rgba(0, 0, 0, .38), 0 2px 8px rgba(0, 0, 0, .18);
 }
-header.nav .brand { font-weight: 800; font-size: 17px; color: #fff; letter-spacing: .3px; }
-header.nav a { color: var(--muted); font-weight: 600; font-size: 14px; text-decoration: none; }
-header.nav a:hover { color: #fff; }
 header.nav .sp { flex: 1; }
+
+.pill-logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+.pill-logo-mark {
+  width: 34px; height: 34px; border-radius: 11px; flex-shrink: 0;
+  background: #0a0a0b;
+  color: #fff; font-size: 16px; display: flex; align-items: center; justify-content: center;
+}
+.pill-logo-text { display: flex; flex-direction: column; line-height: 1.05; font-weight: 800; font-size: 14px; }
+.pill-logo-text .l1 { color: #0f172a; }
+.pill-logo-text .l2 { color: #6b7280; }
+
+.pill-items { display: flex; align-items: center; gap: 2px; flex-wrap: wrap; }
+.pill-item {
+  display: flex; align-items: center; gap: 7px; text-decoration: none;
+  padding: 9px 16px; border-radius: 999px; font-weight: 700; font-size: 13px;
+  color: #111827; transition: background .15s ease, color .15s ease;
+}
+.pill-item-ic { width: 16px; height: 16px; display: flex; flex-shrink: 0; }
+.pill-item-ic svg { width: 100%; height: 100%; }
+.pill-item:hover:not(.active) { background: #f1f2f6; }
+.pill-item.active { background: #111114; color: #fff; }
+
+.pill-auth {
+  border: 0; background: transparent; color: #111827; font-weight: 700; font-size: 13px;
+  padding: 9px 14px; border-radius: 999px; cursor: pointer; text-decoration: none;
+}
+.pill-auth:hover { background: #f1f2f6; }
+.pill-auth-primary { background: #0a0a0b; color: #fff; }
+.pill-auth-primary:hover { background: #27272a; }
 
 header.nav .user-chip {
   display: flex; align-items: center; gap: 8px;
-  background: var(--card2); border: 1px solid var(--line); border-radius: 999px;
-  padding: 5px 14px 5px 5px; color: var(--text); text-decoration: none;
+  background: #f4f5f9; border: 1px solid #e5e7eb; border-radius: 999px;
+  padding: 5px 14px 5px 5px; color: #111827; text-decoration: none;
   transition: background .15s ease, border-color .15s ease;
 }
-header.nav .user-chip:hover { background: #232326; border-color: var(--accent2); color: #fff; }
+header.nav .user-chip:hover { background: #eaebef; border-color: #d1d5db; }
 .user-chip-avatar {
   width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0; object-fit: cover;
 }
 .user-chip-fallback {
   display: flex; align-items: center; justify-content: center;
-  background: var(--accent); color: #0a0a0b; font-size: 12px; font-weight: 800;
+  background: #0a0a0b; color: #fff; font-size: 12px; font-weight: 800;
 }
 .user-chip-text { display: flex; flex-direction: column; line-height: 1.25; }
 .user-chip-name { font-weight: 700; font-size: 13px; }
-.user-chip-role { font-size: 11px; color: var(--muted); }
+.user-chip-role { font-size: 11px; color: #6b7280; }
+
+@media (max-width: 640px) {
+  header.nav { margin: 10px 10px 18px; padding: 8px; }
+  .pill-logo-text { display: none; }
+  .user-chip-text { display: none; }
+}
 
 .container { max-width: 980px; margin: 0 auto; padding: 22px 18px 60px; }
 .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 20px; margin-bottom: 18px; }
@@ -102,7 +137,7 @@ code.box {
 .dash-layout { display: flex; align-items: flex-start; gap: 20px; }
 .sidebar {
   width: 220px; flex-shrink: 0; display: flex; flex-direction: column; gap: 6px;
-  position: sticky; top: 76px;
+  position: sticky; top: 92px;
 }
 .sidebar-item {
   display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
@@ -113,16 +148,29 @@ code.box {
 .sidebar-item .ic { font-size: 16px; }
 .sidebar-item:hover { background: var(--card2); color: var(--text); }
 .sidebar-item.active { background: var(--accent); border-color: var(--accent); color: #0a0a0b; }
+.sidebar-section {
+  font-size: 12px; font-weight: 700; color: var(--muted); padding: 4px 12px 2px;
+}
+.sidebar-section:not(:first-child) { margin-top: 10px; padding-top: 16px; border-top: 1px solid var(--line); }
 .dash-content { flex: 1; min-width: 0; }
 .tab-panel[hidden] { display: none; }
 
 @media (max-width: 780px) {
   .dash-layout { flex-direction: column; }
   .sidebar {
-    position: static; flex-direction: row; width: 100%; overflow-x: auto;
-    padding-bottom: 4px;
+    position: static; flex-direction: column; width: 100%;
   }
-  .sidebar-item { flex-shrink: 0; }
+}
+
+@media (max-width: 640px) {
+  .container { padding: 16px 12px 48px; }
+  #balRow { flex-direction: column; align-items: flex-start !important; gap: 12px; }
+  #earnBox { text-align: left !important; }
+  .row-form { flex-direction: column; align-items: stretch; }
+  .row-form > input, .row-form > select, .row-form > button, .row-form > .btn {
+    max-width: none !important;
+    width: 100%;
+  }
 }
 
 .stat-tile { background: var(--card2); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
@@ -167,6 +215,17 @@ code.box {
   display: flex; align-items: center; justify-content: center;
   font-size: 30px; font-weight: 800; color: #0a0a0b; background: var(--accent);
 }
+
+.addr-search-wrap { position: relative; }
+.addr-suggest {
+  position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 30;
+  background: var(--card2); border: 1px solid var(--line); border-radius: 10px;
+  max-height: 260px; overflow-y: auto; box-shadow: 0 12px 30px rgba(0, 0, 0, .4);
+}
+.addr-suggest .opt { padding: 9px 12px; font-size: 13px; cursor: pointer; border-bottom: 1px solid var(--line); }
+.addr-suggest .opt:last-child { border-bottom: 0; }
+.addr-suggest .opt:hover, .addr-suggest .opt.hi { background: var(--card); }
+.addr-suggest .empty { padding: 10px 12px; font-size: 13px; color: var(--muted); }
 
 .toast {
   position: fixed; right: 18px; bottom: 18px; padding: 12px 18px; border-radius: 10px;

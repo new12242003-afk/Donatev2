@@ -11,7 +11,7 @@
   <div class="container">
 
     <div class="card">
-      <div class="row" style="justify-content:space-between;align-items:flex-start">
+      <div class="row" id="balRow" style="justify-content:space-between;align-items:flex-start">
         <div>
           <div class="muted">ยอด Token คงเหลือ (1 Token = 1 บาท)</div>
           <div class="balance" id="bal">0</div>
@@ -31,34 +31,18 @@
 
     <div class="dash-layout">
       <nav class="sidebar" id="dashNav">
-        <button class="sidebar-item" data-tab="topup"><span class="ic">💰</span> เติมเงินเข้าเว็บไซต์</button>
+        <div class="sidebar-section">ทั่วไป</div>
         <button class="sidebar-item" data-tab="donate"><span class="ic">🎁</span> ส่งโดเนท</button>
+        <button class="sidebar-item" data-tab="account"><span class="ic">👤</span> บัญชีผู้ใช้</button>
+
+        <div class="sidebar-section" id="navSectionEarn" style="display:none">การรับเงิน</div>
         <button class="sidebar-item" data-tab="settings" id="navSettings" style="display:none"><span class="ic">⚙️</span> ตั้งค่าโดเนท</button>
         <button class="sidebar-item" data-tab="earnings" id="navEarnings" style="display:none"><span class="ic">💵</span> รับเงิน & รายได้</button>
         <button class="sidebar-item" data-tab="stats" id="navStats" style="display:none"><span class="ic">📊</span> หน้าจัดการ / สถิติ</button>
         <button class="sidebar-item" data-tab="leaderboard" id="navLeaderboard" style="display:none"><span class="ic">🏆</span> อันดับผู้โดเนท</button>
-        <button class="sidebar-item" data-tab="account"><span class="ic">👤</span> บัญชีผู้ใช้</button>
       </nav>
 
       <div class="dash-content">
-
-        <!-- เติมเงิน -->
-        <section class="tab-panel" data-panel="topup">
-          <div class="card">
-            <h2>เติมเงินเข้าเว็บไซต์</h2>
-            <div class="row" id="pkgs"></div>
-            <label>หรือระบุจำนวนเอง (บาท)</label>
-            <div class="row">
-              <input id="topupAmt" type="number" min="20" placeholder="20" style="max-width:150px">
-              <select id="topupMethod" style="max-width:190px">
-                <option value="mock">ชำระทันที (จำลอง)</option>
-                <option value="promptpay">PromptPay QR (จำลอง)</option>
-              </select>
-              <button id="topupGo">เติมเงิน</button>
-            </div>
-            <div id="topupOut" class="muted" style="margin-top:8px"></div>
-          </div>
-        </section>
 
         <!-- โดเนท -->
         <section class="tab-panel" data-panel="donate">
@@ -81,7 +65,7 @@
           <div class="card">
             <h3 style="margin:0 0 12px">โดเนทด้วยจำนวนเงินที่กำหนดเอง</h3>
             <label>จำนวนเงิน (บาท)</label>
-            <div class="row">
+            <div class="row row-form">
               <input id="dAmount" type="number" min="1" max="1000" value="20" style="max-width:150px">
               <button id="dGo">ส่งโดเนท</button>
             </div>
@@ -89,7 +73,6 @@
 
           <div class="card">
             <h3 style="margin:0 0 6px">ส่งสติกเกอร์ (ราคาคงที่ กดแล้วส่งทันที)</h3>
-            <p class="muted" style="margin-top:0">ไม่ต้องกรอกจำนวนเงินเพิ่ม แต่ละสติกเกอร์มีราคาตามที่แสดงไว้ใต้ไอคอน กดปุ่มแล้วส่งโดเนททันที</p>
             <div class="stickpick" id="dStickers"></div>
           </div>
 
@@ -119,7 +102,7 @@
 
           <div class="card">
             <h2>ทดสอบการแจ้งเตือนไปที่ Overlay</h2>
-            <div class="row">
+            <div class="row row-form">
               <input id="tAmount" type="number" value="99" style="max-width:110px">
               <input id="tName" placeholder="ชื่อผู้ส่ง" style="max-width:150px">
               <select id="tSticker" style="max-width:170px"></select>
@@ -152,7 +135,7 @@
           <div class="card">
             <h2>รายได้ & ถอนเงิน</h2>
             <p class="muted">รายได้คงเหลือ: <b id="earn2">0</b> บาท</p>
-            <div class="row">
+            <div class="row row-form">
               <input id="pAmount" type="number" placeholder="จำนวน (ขั้นต่ำ 100)" style="max-width:170px">
               <input id="pAcc" placeholder="เลขบัญชี / พร้อมเพย์" style="max-width:220px">
               <button id="pGo">ขอถอนเงิน</button>
@@ -181,10 +164,6 @@
           <div class="card">
             <h2>สถิติภาพรวม</h2>
             <div class="grid c3" id="statTiles"></div>
-            <p class="muted" style="margin-top:12px">
-              "ผู้เข้าชม" คือจำนวนครั้งที่มีคนเปิดหน้าโดเนทของคุณจากเว็บนี้ (นับตอนเลือกคุณในหน้าส่งโดเนท)
-              ไม่ใช่ยอดผู้ชมสตรีมสดจริง — ใช้ประเมิน "อัตราการโดเนท" คร่าว ๆ ได้
-            </p>
           </div>
 
           <div class="card">
@@ -253,14 +232,14 @@
             <input id="acctUsername" disabled title="เปลี่ยนไม่ได้">
 
             <label>อีเมล</label>
-            <div class="row">
+            <div class="row row-form">
               <input id="acctEmail" type="email" style="flex:1;min-width:200px">
               <button class="sm" id="saveEmail">บันทึกอีเมล</button>
             </div>
             <div id="emailOut" class="muted" style="margin-top:6px"></div>
 
             <label>ชื่อที่แสดง (ใช้แสดงตอนโดเนท)</label>
-            <div class="row">
+            <div class="row row-form">
               <input id="dispName" style="flex:1;min-width:200px">
               <button class="sm" id="saveName">บันทึก</button>
             </div>
@@ -274,20 +253,25 @@
             <input id="p_first">
             <label>นามสกุล</label>
             <input id="p_last">
+            <label>ชื่อเล่น</label>
+            <input id="p_nickname">
             <label>เลขบัตรประชาชน</label>
             <input id="p_nid" maxlength="13" inputmode="numeric">
             <label>วันเกิด</label>
             <input id="p_dob" type="date">
             <label>ที่อยู่ (บ้านเลขที่ / หมู่ / ถนน)</label>
             <input id="p_addr">
-            <label>ตำบล/แขวง</label>
-            <input id="p_subdistrict">
-            <label>อำเภอ/เขต</label>
-            <input id="p_district">
-            <label>จังหวัด</label>
-            <input id="p_province">
-            <label>รหัสไปรษณีย์</label>
-            <input id="p_zip" maxlength="5" inputmode="numeric">
+            <label>ค้นหาตำบล/อำเภอ/จังหวัด/รหัสไปรษณีย์</label>
+            <div class="addr-search-wrap">
+              <input id="p_addrSearch" placeholder="พิมพ์เพื่อค้นหา เช่น ลำพูน หรือ 39000" autocomplete="off">
+              <div class="addr-suggest" id="p_addrSuggest" hidden></div>
+            </div>
+            <div class="grid c2" style="margin-top:10px">
+              <div><label>จังหวัด</label><input id="p_province" readonly></div>
+              <div><label>อำเภอ/เขต</label><input id="p_district" readonly></div>
+              <div><label>ตำบล/แขวง</label><input id="p_subdistrict" readonly></div>
+              <div><label>รหัสไปรษณีย์</label><input id="p_zip" readonly></div>
+            </div>
 
             <div style="margin-top:14px"><button id="saveProfile">บันทึกข้อมูลผู้ใช้งาน</button></div>
           </div>
