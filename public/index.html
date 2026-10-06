@@ -3,61 +3,152 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Donate Stream</title>
+  <title>Donate Stream · แพลตฟอร์มโดเนทสำหรับสตรีมเมอร์</title>
+  <meta name="description" content="รับโดเนทระหว่างไลฟ์ แจ้งเตือนบน OBS พร้อมเสียงอ่านข้อความ สติกเกอร์แอนิเมชัน และถอนเงินเข้าบัญชีได้ง่าย">
   <link rel="stylesheet" href="/css/app.css">
 </head>
-<body>
+<body class="home">
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   <script src="/js/common.js"></script>
-  <div class="container">
-    <div class="card" style="text-align:center">
-      <h1 style="font-size:30px;margin:.2em 0">◆ Donate Stream</h1>
-      <p class="muted">แพลตฟอร์มโดเนทสำหรับสตรีมเมอร์ — เชื่อมต่อ OBS Studio แสดงผลบนจอไลฟ์สด<br>พร้อมข้อความ ชื่อผู้ส่ง และสติกเกอร์แอนิเมชัน</p>
-      <div class="row" style="justify-content:center;margin-top:14px">
-        <a class="btn" href="/register.html">สมัครสมาชิก</a>
-        <a class="btn ghost" href="/login.html">เข้าสู่ระบบ</a>
+
+  <main class="container hm">
+    <!-- Hero -->
+    <section class="hm-hero">
+      <div class="hm-hero-text">
+        <span class="hm-eyebrow">✨ แพลตฟอร์มโดเนทสำหรับสตรีมเมอร์ไทย</span>
+        <h1 class="hm-title">รับโดเนทระหว่างไลฟ์<br><span>ง่าย สวย ครบในที่เดียว</span></h1>
+        <p class="hm-lead">แจ้งเตือนบนจอ OBS แบบเรียลไทม์ พร้อม AI อ่านข้อความ สติกเกอร์แอนิเมชัน และถอนรายได้เข้าบัญชีได้ทันที — เริ่มใช้ฟรี 21 วัน</p>
+        <div class="hm-cta" id="hmCta">
+          <a class="btn hm-btn-primary" href="/register.html">เริ่มรับโดเนทฟรี →</a>
+          <a class="btn ghost hm-btn-ghost" href="/streamers.html">ค้นหาสตรีมเมอร์</a>
+        </div>
+        <div class="hm-trust">
+          <span>✔ ไม่ต้องติดตั้งโปรแกรม</span><span>✔ ใช้กับ OBS ได้ทันที</span><span>✔ ยกเลิกได้ทุกเมื่อ</span>
+        </div>
       </div>
-    </div>
 
-    <div class="card">
-      <h2>สตรีมเมอร์ในระบบ</h2>
-      <div id="streamers" class="grid c3"></div>
-    </div>
+      <!-- ตัวอย่างการแจ้งเตือนบนจอไลฟ์ -->
+      <div class="hm-preview" aria-hidden="true">
+        <div class="hm-screen">
+          <div class="hm-screen-bar"><span></span><span></span><span></span><b>LIVE</b></div>
+          <div class="hm-screen-body">
+            <div class="hm-alert a1"><span class="hm-alert-ic">💖</span><div><b>มิกกี้ โดเนท 100฿</b><small>เป็นกำลังใจให้นะครับ สู้ ๆ!</small></div></div>
+            <div class="hm-alert a2"><span class="hm-alert-ic">🚀</span><div><b>น้ำหวาน ส่งสติกเกอร์ จรวด</b><small>สติกเกอร์แอนิเมชันลอยบนจอ</small></div></div>
+            <div class="hm-alert a3"><span class="hm-alert-ic">🔊</span><div><b>AI อ่านข้อความให้อัตโนมัติ</b><small>"มิกกี้ โดเนท 100 เป็นกำลังใจให้นะครับ"</small></div></div>
+          </div>
+        </div>
+        <div class="hm-float f1">💎 +100</div>
+        <div class="hm-float f2">🎉</div>
+      </div>
+    </section>
 
-    <div class="card">
-      <h2>ฟีเจอร์หลัก</h2>
-      <ul class="muted">
-        <li>สมัคร/เข้าสู่ระบบด้วย username + password ยืนยันตัวตนผ่านอีเมล (Gmail) และ "เข้าสู่ระบบด้วย Google"</li>
-        <li>เติมเงินเข้าเว็บไซต์ — 20 บาท = 20 Token (1:1)</li>
-        <li>โดเนท 1–1,000 บาท พร้อมชื่อผู้ส่ง ข้อความ และสติกเกอร์หลายแบบ</li>
-        <li>Overlay สำหรับ OBS Browser Source แสดงผลแบบเรียลไทม์ (Socket.IO)</li>
-        <li>3 บทบาท: แอดมิน (ดูแลทั้งระบบ) / สตรีมเมอร์ (ปรับแต่งโดเนทของตัวเอง) / ผู้โดเนท</li>
-      </ul>
-    </div>
-  </div>
+    <!-- ตัวเลข -->
+    <section class="hm-stats" id="hmStats">
+      <div><b id="stStreamers">–</b><span>สตรีมเมอร์</span></div>
+      <div><b id="stDonations">–</b><span>ครั้งที่มีคนโดเนท</span></div>
+      <div><b id="stStickers">–</b><span>สติกเกอร์ให้เลือก</span></div>
+      <div><b>21 วัน</b><span>ทดลองใช้ฟรี</span></div>
+    </section>
+
+    <!-- ฟีเจอร์ -->
+    <section class="hm-sec">
+      <div class="hm-sec-head">
+        <span class="hm-eyebrow">ฟีเจอร์</span>
+        <h2>ทุกอย่างที่สตรีมเมอร์ต้องใช้</h2>
+        <p>ตั้งค่าครั้งเดียว ใช้ได้ทุกไลฟ์ ไม่ต้องมีความรู้ด้านเทคนิค</p>
+      </div>
+      <div class="hm-features">
+        <div class="hm-feat"><span class="hm-feat-ic blue">🖥️</span><h3>แจ้งเตือนบน OBS</h3><p>วางลิงก์ Overlay ใน Browser Source แล้วการแจ้งเตือนขึ้นจอทันทีที่มีคนโดเนท</p></div>
+        <div class="hm-feat"><span class="hm-feat-ic violet">🔊</span><h3>AI อ่านข้อความ</h3><p>อ่านชื่อ จำนวนเงิน และข้อความด้วยเสียงภาษาไทยที่เป็นธรรมชาติ</p></div>
+        <div class="hm-feat"><span class="hm-feat-ic pink">✨</span><h3>สติกเกอร์แอนิเมชัน</h3><p>ผู้ชมส่งสติกเกอร์ ลอย โปรย หมุน ซูม บนจอไลฟ์ได้ในคลิกเดียว</p></div>
+        <div class="hm-feat"><span class="hm-feat-ic green">💸</span><h3>ถอนเงินง่าย</h3><p>ถอนเข้าธนาคาร พร้อมเพย์ หรือ TrueMoney พร้อมสลิปยืนยันการโอน</p></div>
+        <div class="hm-feat"><span class="hm-feat-ic orange">🎨</span><h3>ปรับแต่งได้ทั้งหมด</h3><p>สี เสียง GIF ตัวกรองคำ และแจ้งเตือนพิเศษตามยอดเงิน</p></div>
+        <div class="hm-feat"><span class="hm-feat-ic teal">📊</span><h3>สถิติ & ประวัติ</h3><p>ดูรายได้ ผู้สนับสนุน และส่งออก Excel / PDF ได้ทุกตาราง</p></div>
+      </div>
+    </section>
+
+    <!-- ขั้นตอน -->
+    <section class="hm-sec">
+      <div class="hm-sec-head">
+        <span class="hm-eyebrow">เริ่มต้นใช้งาน</span>
+        <h2>เริ่มรับโดเนทได้ใน 3 ขั้นตอน</h2>
+      </div>
+      <div class="hm-steps">
+        <div class="hm-step"><span class="hm-step-no">1</span><h3>สมัครสมาชิก</h3><p>สมัครด้วยอีเมล เลือกบัญชีสตรีมเมอร์ ใช้ฟรี 21 วันทันที</p></div>
+        <div class="hm-step"><span class="hm-step-no">2</span><h3>ใส่ Overlay ใน OBS</h3><p>คัดลอกลิงก์ Overlay ไปวางใน Browser Source แล้วปรับแต่งตามชอบ</p></div>
+        <div class="hm-step"><span class="hm-step-no">3</span><h3>แชร์ลิงก์โดเนท</h3><p>ส่งลิงก์หน้าโดเนทให้ผู้ชม แล้วรอรับแจ้งเตือนบนจอได้เลย</p></div>
+      </div>
+    </section>
+
+    <!-- สตรีมเมอร์แนะนำ -->
+    <section class="hm-sec" id="hmStreamersSec" hidden>
+      <div class="hm-sec-head row-between">
+        <div><span class="hm-eyebrow">ชุมชน</span><h2>สตรีมเมอร์ในระบบ</h2></div>
+        <a class="btn ghost pill" href="/streamers.html">ดูทั้งหมด →</a>
+      </div>
+      <div class="hm-streamers" id="hmStreamers"></div>
+    </section>
+
+    <!-- CTA -->
+    <section class="hm-final">
+      <h2>พร้อมเริ่มรับโดเนทแล้วหรือยัง?</h2>
+      <p>สมัครวันนี้ ใช้ฟรี 21 วัน — แพลนเริ่มต้นเพียง 20 บาท/เดือน</p>
+      <div class="hm-cta center">
+        <a class="btn hm-btn-light" href="/register.html">สมัครสมาชิกฟรี</a>
+        <a class="btn hm-btn-outline" href="/plans.html">ดูแพลนทั้งหมด</a>
+      </div>
+    </section>
+  </main>
 
   <script>
+    // ลิงก์เก่า /#streamers → ย้ายไปหน้าสตรีมเมอร์แล้ว
+    if (location.hash === '#streamers') location.replace('/streamers.html');
+
     (async () => {
       const me = await getMe();
       mountNav(me);
-      const box = document.getElementById('streamers');
-      const list = await api('/api/public/streamers').catch(() => []);
-      if (!list.length) { box.innerHTML = '<p class="muted">ยังไม่มีสตรีมเมอร์</p>'; return; }
-      list.forEach((x) => {
-        const c = el('div', { class: 'card' });
-        const row = el('div', { class: 'row', style: 'align-items:center;flex-wrap:nowrap' });
-        row.append(x.avatar_url
-          ? el('img', { class: 'streamer-avatar', src: x.avatar_url, alt: '' })
-          : el('span', { class: 'streamer-avatar streamer-avatar-fallback' },
-              (x.display_name || x.username || '?').trim().charAt(0).toUpperCase()));
-        row.append(el('div', {},
-          el('div', { style: 'font-weight:700' }, x.display_name || x.username),
-          el('div', { class: 'muted' }, '@' + x.username)));
-        c.append(row);
-        c.append(el('div', { style: 'margin-top:12px' },
-          el('a', { class: 'btn sm', href: '/dashboard.html?to=' + encodeURIComponent(x.username) }, 'โดเนท')));
-        box.append(c);
-      });
+      // ล็อกอินแล้ว: ปุ่มหลักพาไปแดชบอร์ดแทนสมัครสมาชิก
+      if (me) {
+        const cta = document.getElementById('hmCta');
+        cta.firstElementChild.href = '/dashboard.html';
+        cta.firstElementChild.textContent = 'ไปที่แดชบอร์ด →';
+        document.querySelectorAll('.hm-final a[href="/register.html"]').forEach((a) => { a.href = '/dashboard.html'; a.textContent = 'ไปที่แดชบอร์ด'; });
+      }
+
+      const [stats, streamers] = await Promise.all([
+        api('/api/public/stats').catch(() => null),
+        api('/api/public/streamers').catch(() => []),
+      ]);
+      if (stats) {
+        countUp('stStreamers', stats.streamers);
+        countUp('stDonations', stats.donations);
+        countUp('stStickers', stats.stickers);
+      }
+      if (streamers.length) {
+        document.getElementById('hmStreamersSec').hidden = false;
+        const box = document.getElementById('hmStreamers');
+        streamers.slice(0, 8).forEach((x) => {
+          const a = el('a', { class: 'hm-st', href: '/u/' + encodeURIComponent(x.username) });
+          a.append(x.avatar_url
+            ? el('img', { src: x.avatar_url, alt: '' })
+            : el('span', { class: 'hm-st-fb' }, (x.display_name || x.username).trim().charAt(0).toUpperCase()));
+          a.append(el('b', {}, x.display_name || x.username), el('small', {}, x.creator_category || '@' + x.username));
+          box.append(a);
+        });
+      }
     })();
+
+    // ตัวเลขวิ่งขึ้นเมื่อโหลด
+    function countUp(id, to) {
+      const elx = document.getElementById(id);
+      const start = performance.now(), dur = 900;
+      const step = (t) => {
+        const k = Math.min(1, (t - start) / dur);
+        elx.textContent = Math.round(to * (1 - Math.pow(1 - k, 3))).toLocaleString('th-TH');
+        if (k < 1) requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    }
   </script>
 </body>
 </html>

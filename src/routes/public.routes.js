@@ -1,6 +1,7 @@
 const express = require('express');
 const { db, getConfig } = require('../db');
 const { now } = require('../util');
+const { parseSocialLinks } = require('../social');
 
 const router = express.Router();
 
@@ -14,12 +15,68 @@ router.get('/config', (req, res) => {
     default_min_donation: Number(getConfig('default_min_donation', '1')),
     default_max_donation: Number(getConfig('default_max_donation', '1000')),
     topup_packages: pkgs,
+    // false = ปิดเติมเงินจำลอง (หน้าเติมเงินแสดงข้อความแจ้งแทน)
+    payments_enabled: require('../config').ALLOW_MOCK_PAYMENTS,
   });
 });
 
+// ตัวเลขภาพรวมสำหรับหน้าแรก (ไม่ใช่ข้อมูลส่วนตัว)
+router.get('/stats', (req, res) => {
+  const streamers = db.prepare("SELECT COUNT(*) c FROM users WHERE role IN ('streamer','admin') AND banned = 0").get().c;
+  const d = db.prepare('SELECT COUNT(*) c FROM donations').get().c;
+  const stickers = db.prepare('SELECT COUNT(*) c FROM stickers WHERE enabled = 1').get().c;
+  res.json({ streamers, donations: d, stickers });
+});
+
 router.get('/streamers', (req, res) => {
-  res.json(db.prepare(`SELECT username, display_name, avatar_url FROM users
-    WHERE role IN ('streamer','admin') AND banned = 0 ORDER BY username`).all());
+  const rows = db.prepare(`SELECT username, display_name, avatar_url, cover_url, bio, creator_category, social_links FROM users
+    WHERE role IN ('streamer','admin') AND banned = 0 ORDER BY username`).all();
+  res.json(rows.map((r) => ({ ...r, social_links: parseSocialLinks(r.social_links) })));
+});
+
+// ค่าที่หน้าโดเนทต้องรู้ล่วงหน้า (ไม่ใช่ข้อมูลลับ): ช่วงยอดโดเนท และเปิดรับคลิปเสียง/ไฟล์เพลงไหม
+function donateConfig(userId) {
+  const s = db.prepare('SELECT * FROM streamer_settings WHERE user_id = ?').get(userId) || {};
+  return {
+    min_donation: s.min_donation || 1,
+    max_donation: s.max_donation || 1000,
+    voice_msg_enabled: !!s.voice_msg_enabled,
+    voice_msg_min_amount: s.voice_msg_min_amount || 5,
+    voice_msg_max_sec: s.voice_msg_max_sec || 5,
+    audio_msg_enabled: !!s.audio_msg_enabled,
+    audio_msg_min_amount: s.audio_msg_min_amount || 1,
+    audio_msg_max_sec: s.audio_msg_max_sec || 15,
+  };
+}
+
+router.get('/streamer-donate-config', (req, res) => {
+  const username = String(req.query.username || '').trim().toLowerCase();
+  const u = db.prepare("SELECT id FROM users WHERE username = ? AND role IN ('streamer','admin')").get(username);
+  if (!u) return res.status(404).json({ error: 'ไม่พบสตรีมเมอร์นี้' });
+  res.json(donateConfig(u.id));
+});
+
+// หน้าโดเนทสาธารณะ /u/:username — โปรไฟล์ + ค่าที่ฟอร์มโดเนทต้องใช้ในคำขอเดียว
+router.get('/u/:username', (req, res) => {
+  const username = String(req.params.username || '').trim().toLowerCase();
+  const u = db.prepare(`SELECT id, username, role, display_name, avatar_url, bio, creator_category, social_links, email_verified, created_at, plan_expires_at
+    FROM users WHERE username = ? AND role IN ('streamer','admin') AND banned = 0`).get(username);
+  if (!u) return res.status(404).json({ error: 'ไม่พบสตรีมเมอร์นี้' });
+  res.json({
+    profile: {
+      username: u.username, display_name: u.display_name || u.username, avatar_url: u.avatar_url || null,
+      bio: u.bio || '', creator_category: u.creator_category || '',
+      social_links: parseSocialLinks(u.social_links), verified: !!u.email_verified,
+    },
+    config: donateConfig(u.id),
+    // แพลนหมดอายุ = ปิดรับโดเนทชั่วคราว (หน้าโดเนทแสดงข้อความแจ้ง)
+    accepting: require('../plans').isActive(u),
+  });
+});
+
+router.get('/plans', (req, res) => {
+  const { PLANS, TRIAL_DAYS } = require('../plans');
+  res.json({ plans: PLANS, trial_days: TRIAL_DAYS });
 });
 
 router.get('/stickers', (req, res) => {
@@ -36,7 +93,7 @@ router.get('/overlay/:key', (req, res) => {
     settings: {
       accent: s.accent_color || '#ffffff',
       text: s.text_color || '#ffffff',
-      bg: s.bg_color || 'rgba(10,10,11,0.92)',
+      bg: s.bg_color || 'transparent',
       duration: s.alert_duration_ms || 8000,
       sound: s.sound_enabled !== 0,
       tts: !!s.tts_enabled,

@@ -7,18 +7,27 @@
   <link rel="stylesheet" href="/css/app.css">
 </head>
 <body>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   <script src="/js/common.js"></script>
   <div class="container">
 
-    <div class="card">
-      <div class="row" id="balRow" style="justify-content:space-between;align-items:flex-start">
-        <div>
-          <div class="muted">ยอด Token คงเหลือ (1 Token = 1 บาท)</div>
-          <div class="balance" id="bal">0</div>
+    <div class="card bal-card">
+      <div id="balRow" class="bal-row">
+        <div class="bal-tile">
+          <span class="bal-ic tk-ic">💎</span>
+          <div>
+            <div class="muted">ยอด Token คงเหลือ <span class="bal-note">(1 Token = 1 บาท)</span></div>
+            <div class="balance" id="bal">0</div>
+          </div>
+          <a class="btn sm pill bal-act" href="/topup.html">+ เติมเงิน</a>
         </div>
-        <div id="earnBox" style="display:none;text-align:right">
-          <div class="muted">รายได้จากโดเนท</div>
-          <div class="balance" id="earn">0</div>
+        <div class="bal-tile" id="earnBox" style="display:none">
+          <span class="bal-ic earn-ic">💰</span>
+          <div>
+            <div class="muted">รายได้จากโดเนท</div>
+            <div class="balance" id="earn">0</div>
+          </div>
+          <a class="btn sm pill ghost bal-act" href="/dashboard.html#earnings">ถอนเงิน</a>
         </div>
       </div>
       <div id="verifyWarn" class="muted" style="display:none;margin-top:10px;color:#f87171">
@@ -32,53 +41,46 @@
     <div class="dash-layout">
       <nav class="sidebar" id="dashNav">
         <div class="sidebar-section">ทั่วไป</div>
-        <button class="sidebar-item" data-tab="donate"><span class="ic">🎁</span> ส่งโดเนท</button>
         <button class="sidebar-item" data-tab="account"><span class="ic">👤</span> บัญชีผู้ใช้</button>
+        <button class="sidebar-item" data-tab="donate"><span class="ic">🧾</span> ประวัติการโดเนท</button>
+        <button class="sidebar-item" data-tab="plan" id="navPlan" style="display:none"><span class="ic">🎁</span> แพลน</button>
+        <button class="sidebar-item" data-tab="planhistory" id="navPlanHistory" style="display:none"><span class="ic">🗂️</span> ประวัติการสมัครแพลน</button>
 
         <div class="sidebar-section" id="navSectionEarn" style="display:none">การรับเงิน</div>
-        <button class="sidebar-item" data-tab="settings" id="navSettings" style="display:none"><span class="ic">⚙️</span> ตั้งค่าโดเนท</button>
+        <button class="sidebar-item" data-tab="settings" id="navSettings" style="display:none"><span class="ic">🔗</span> ลิงก์หน้าโดเนท</button>
+        <button class="sidebar-item" data-tab="overlay" id="navOverlay" style="display:none"><span class="ic">🖥️</span> ตั้งค่า Overlay Live Streaming</button>
         <button class="sidebar-item" data-tab="earnings" id="navEarnings" style="display:none"><span class="ic">💵</span> รับเงิน & รายได้</button>
-        <button class="sidebar-item" data-tab="stats" id="navStats" style="display:none"><span class="ic">📊</span> หน้าจัดการ / สถิติ</button>
-        <button class="sidebar-item" data-tab="leaderboard" id="navLeaderboard" style="display:none"><span class="ic">🏆</span> อันดับผู้โดเนท</button>
+
+        <button type="button" class="sidebar-group" id="navSupportGroup" style="display:none">
+          <span class="ic">🤝</span><span class="label">ได้รับการสนับสนุนแล้ว</span><span class="chev">⌃</span>
+        </button>
+        <div class="sidebar-subgroup" id="navSupportItems" style="display:none">
+          <button class="sidebar-item" data-tab="transactions" id="navTransactions"><span class="ic">📋</span> ทุกธุรกรรม</button>
+          <button class="sidebar-item" data-tab="leaderboard" id="navLeaderboard"><span class="ic">👥</span> ข้อมูลผู้สนับสนุน</button>
+          <button class="sidebar-item" data-tab="stats" id="navStats"><span class="ic">📊</span> การวิเคราะห์</button>
+        </div>
       </nav>
 
       <div class="dash-content">
 
         <!-- โดเนท -->
         <section class="tab-panel" data-panel="donate">
-          <div class="card">
-            <h2>ส่งโดเนท</h2>
-            <label>เลือกสตรีมเมอร์</label>
-            <select id="dStreamer"></select>
-            <div class="grid c2">
-              <div>
-                <label>ชื่อผู้ส่ง (แสดงบนจอ)</label>
-                <input id="dName">
-              </div>
-              <div>
-                <label>ข้อความ (ไม่บังคับ, สูงสุด 200 ตัว)</label>
-                <input id="dMsg" maxlength="200">
-              </div>
+          <div class="card donate-hint">
+            <div>
+              <h2 style="margin:0 0 4px">อยากโดเนทให้สตรีมเมอร์?</h2>
+              <p class="muted" style="margin:0">เลือกสตรีมเมอร์ที่หน้าสตรีมเมอร์ แล้วโดเนทหรือส่งสติกเกอร์ผ่านหน้าโดเนทของเขาได้เลย</p>
             </div>
-          </div>
-
-          <div class="card">
-            <h3 style="margin:0 0 12px">โดเนทด้วยจำนวนเงินที่กำหนดเอง</h3>
-            <label>จำนวนเงิน (บาท)</label>
-            <div class="row row-form">
-              <input id="dAmount" type="number" min="1" max="1000" value="20" style="max-width:150px">
-              <button id="dGo">ส่งโดเนท</button>
-            </div>
-          </div>
-
-          <div class="card">
-            <h3 style="margin:0 0 6px">ส่งสติกเกอร์ (ราคาคงที่ กดแล้วส่งทันที)</h3>
-            <div class="stickpick" id="dStickers"></div>
+            <a class="btn" href="/streamers.html">เลือกสตรีมเมอร์</a>
           </div>
 
           <div class="card">
             <h2>ประวัติการโดเนทของฉัน</h2>
-            <div class="tablewrap">
+            <input id="sentSearch" placeholder="🔍 ค้นหาวันที่ สตรีมเมอร์ ข้อความ สติกเกอร์ หรือจำนวนเงิน" style="max-width:420px">
+            <div class="row" style="margin-top:10px">
+              <a href="#" id="sentExportExcel" class="sm">ดาวน์โหลดข้อมูลลง Excel</a>
+              <a href="#" id="sentExportPdf" class="sm">ดาวน์โหลดข้อมูลลง PDF</a>
+            </div>
+            <div class="tablewrap" style="margin-top:14px">
               <table>
                 <thead><tr><th>เวลา</th><th>ถึง</th><th>จำนวน</th><th>สติกเกอร์</th><th>ข้อความ</th></tr></thead>
                 <tbody id="sentHist"></tbody>
@@ -87,22 +89,106 @@
           </div>
         </section>
 
-        <!-- ตั้งค่าโดเนท (สตรีมเมอร์) -->
+        <!-- แพลน: สถานะ + เวลาคงเหลือ + วันเวลาหมดอายุ (สตรีมเมอร์/แอดมิน) -->
+        <section class="tab-panel" data-panel="plan">
+          <div class="card pd-card">
+            <div class="pd-head">
+              <div>
+                <div class="muted">แพลนปัจจุบัน</div>
+                <h2 class="pd-name" id="pdName">—</h2>
+              </div>
+              <span class="pd-badge" id="pdBadge"></span>
+            </div>
+
+            <div class="pd-countdown" id="pdCountdown">
+              <div><b id="pdD">0</b><span>วัน</span></div>
+              <div><b id="pdH">0</b><span>ชั่วโมง</span></div>
+              <div><b id="pdM">0</b><span>นาที</span></div>
+              <div><b id="pdS">0</b><span>วินาที</span></div>
+            </div>
+
+            <div class="pd-progress"><div class="pd-bar" id="pdBar"></div></div>
+            <div class="pd-progress-lbl"><span id="pdUsed"></span><span id="pdLeftPct"></span></div>
+
+            <div class="pd-rows">
+              <div><span>เริ่มช่วงการใช้งานนี้</span><b id="pdStart">—</b></div>
+              <div><span>หมดอายุ</span><b id="pdEnd">—</b></div>
+              <div><span>สถานะหน้าโดเนท</span><b id="pdAccept">—</b></div>
+            </div>
+
+            <div class="row" style="margin-top:18px">
+              <a class="btn pill" href="/plans.html" id="pdBuy">ต่ออายุแพลน</a>
+              <button type="button" class="pill ghost" id="pdToHistory">ดูประวัติการสมัครแพลน</button>
+            </div>
+            <p class="muted" style="margin-top:14px">ซื้อแพลนขณะที่ยังไม่หมดอายุ เวลาที่เหลือจะไม่หาย ระบบต่อเวลาจากวันหมดอายุเดิมให้ · เมื่อหมดอายุ หน้าโดเนทจะปิดรับโดเนทชั่วคราวจนกว่าจะต่ออายุ</p>
+          </div>
+        </section>
+
+        <!-- ประวัติการสมัครแพลน -->
+        <section class="tab-panel" data-panel="planhistory">
+          <div class="card">
+            <h2>ประวัติการสมัครแพลน</h2>
+            <p class="muted">รายการแพลนทั้งหมดของบัญชีนี้ รวมช่วงทดลองใช้ฟรีตอนสมัครสมาชิก เรียงจากล่าสุด</p>
+            <div class="tablewrap">
+              <table>
+                <thead><tr><th>วันที่สมัคร</th><th>แพลน</th><th>ราคา</th><th>ช่วงเวลาใช้งาน</th><th>สถานะ</th></tr></thead>
+                <tbody id="planHist"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ลิงก์หน้าโดเนทของคุณ (สตรีมเมอร์) -->
         <section class="tab-panel" data-panel="settings">
+          <div class="card">
+            <h2>หน้าโดเนทของคุณ</h2>
+            <p class="muted">ส่งลิงก์นี้ให้ผู้ชม (เช่น ใส่ในคำอธิบายไลฟ์หรือโปรไฟล์โซเชียล) ผู้ชมเปิดแล้วโดเนทให้คุณได้ทันที</p>
+            <code class="box" id="donatePageUrl"></code>
+            <div class="row" style="margin-top:10px">
+              <button class="sm" id="copyDonatePage">คัดลอกลิงก์</button>
+              <a class="btn sm ghost" id="openDonatePage" target="_blank">เปิดดูหน้าโดเนท</a>
+            </div>
+          </div>
+        </section>
+
+        <!-- ตั้งค่า Overlay Live Streaming (สตรีมเมอร์) -->
+        <section class="tab-panel" data-panel="overlay">
+          <div class="autosave-status" id="ovSaveStatus" aria-live="polite"></div>
           <div class="card">
             <h2>Overlay สำหรับ OBS Studio</h2>
             <p class="muted">ใน OBS เพิ่ม <b>Source → Browser</b> แล้ววาง URL นี้ (แนะนำ Width 1920 / Height 1080, พื้นหลังโปร่งใส):</p>
-            <code class="box" id="overlayUrl"></code>
+            <!-- ลิงก์ Overlay เป็นความลับ: เบลอไว้ก่อน กดดูแล้วต้องอ่านคำเตือนก่อนแสดง -->
+            <div class="secret-link" id="overlaySecret">
+              <code class="box" id="overlayUrl"></code>
+              <button type="button" class="secret-reveal" id="revealOverlayUrl">คลิกเพื่อดูลิงก์ 👁</button>
+            </div>
             <div class="row" style="margin-top:10px">
-              <button class="sm" id="copyOverlay">คัดลอก URL</button>
+              <button class="sm" id="copyOverlayUrl">คัดลอก URL</button>
               <button class="sm ghost" id="rotateOverlay">สร้าง URL ใหม่ (ยกเลิกอันเก่า)</button>
-              <a class="btn sm ghost" id="openOverlay" target="_blank">เปิดหน้าทดสอบ</a>
             </div>
           </div>
 
           <div class="card">
-            <h2>ทดสอบการแจ้งเตือนไปที่ Overlay</h2>
-            <div class="row row-form">
+            <h2>สไตล์ & ตัวอย่างการแจ้งเตือน</h2>
+            <div class="seg" id="styleSeg">
+              <button type="button" data-style="1">สไตล์ 1</button>
+              <button type="button" data-style="2">สไตล์ 2</button>
+              <button type="button" data-style="custom" class="active">กำหนดเอง</button>
+            </div>
+
+            <div class="overlay-preview" id="ovPreview">
+              <div class="op-title" id="ovPreviewTitle"></div>
+              <div class="op-msg" id="ovPreviewMsg">นี่คือข้อความทดสอบการแจ้งเตือนโดเนท 🎉</div>
+            </div>
+
+            <div class="row" style="margin-top:14px">
+              <button type="button" class="pill" id="btnTestAlert">ทดสอบแจ้งเตือน</button>
+              <button type="button" class="pill" id="btnCustomTestAlert" style="background:#60a5fa;color:#fff">ทดสอบแบบกำหนดเอง</button>
+              <button type="button" class="pill ghost" id="btnCopyLink">คัดลอกลิงก์</button>
+              <a class="btn pill ghost" id="btnOpenNewTab" target="_blank">เปิดในแท็บใหม่</a>
+            </div>
+
+            <div class="row row-form" id="customTestForm" hidden style="margin-top:14px">
               <input id="tAmount" type="number" value="99" style="max-width:110px">
               <input id="tName" placeholder="ชื่อผู้ส่ง" style="max-width:150px">
               <select id="tSticker" style="max-width:170px"></select>
@@ -111,49 +197,234 @@
           </div>
 
           <div class="card">
-            <h2>ตั้งค่าโดเนทของฉัน</h2>
-            <div class="grid c2">
-              <div><label>ระยะเวลาแสดงแจ้งเตือน (มิลลิวินาที)</label><input id="s_dur" type="number"></div>
-              <div><label>ยอดขั้นต่ำที่จะแสดงแจ้งเตือน</label><input id="s_minalert" type="number"></div>
-              <div><label>โดเนทขั้นต่ำ (บาท)</label><input id="s_min" type="number"></div>
-              <div><label>โดเนทสูงสุด (บาท)</label><input id="s_max" type="number"></div>
-              <div><label>สีหลัก (accent) เช่น #ffffff</label><input id="s_accent" type="text"></div>
-              <div><label>สีข้อความ เช่น #ffffff</label><input id="s_text" type="text"></div>
-              <div><label>สีพื้นหลังกล่อง</label><input id="s_bg" type="text"></div>
-              <div><label>รูปแบบหัวข้อ (ใช้ {name} และ {amount})</label><input id="s_title" type="text"></div>
+            <h2>สี</h2>
+            <p class="muted">คลิกสีเพื่อเปลี่ยนแปลง</p>
+
+            <div class="color-row">
+              <input type="color" id="s_accentSwatch" class="color-circle">
+              <span>ชื่อ และ จำนวนเงิน</span>
             </div>
-            <div class="row" style="margin-top:10px">
-              <label class="row" style="margin:0"><input type="checkbox" id="s_sound" style="width:auto"> เสียงแจ้งเตือน</label>
-              <label class="row" style="margin:0"><input type="checkbox" id="s_tts" style="width:auto"> อ่านข้อความออกเสียง (TTS)</label>
+            <div class="color-row">
+              <input type="color" id="s_textSwatch" class="color-circle">
+              <span>ข้อความ</span>
             </div>
-            <div style="margin-top:14px"><button id="saveSettings">บันทึกการตั้งค่า</button></div>
+            <div class="color-row">
+              <input type="color" id="s_connectorSwatch" class="color-circle">
+              <span>โดเนท</span>
+            </div>
+            <input id="s_accent" type="hidden">
+            <input id="s_text" type="hidden">
+            <input id="s_connector" type="hidden">
+            <input id="s_bg" type="hidden" value="transparent">
+
+            <div class="hint">💾 บันทึกอัตโนมัติ — Overlay ใน OBS ใช้สีใหม่ตั้งแต่แจ้งเตือนครั้งถัดไป</div>
+            <input id="s_title" type="hidden" value="{name} โดเนท {amount}{currency}">
+          </div>
+
+          <div class="card">
+            <h2>เสียงแจ้งเตือน</h2>
+
+            <label class="row" style="margin:0"><input type="checkbox" id="s_sound" style="width:auto"> เปิดเสียงแจ้งเตือน</label>
+            <div class="row" style="margin-top:8px;align-items:center">
+              <label class="btn sm ghost" for="soundInput" style="margin:0">เลือกไฟล์เสียง</label>
+              <input id="soundInput" type="file" accept="audio/mpeg,audio/mp3,audio/wav,audio/ogg" hidden>
+              <audio id="soundPreview" controls style="height:32px;display:none"></audio>
+              <button class="sm ghost" id="removeSound" style="display:none">ลบเสียงที่อัปโหลด</button>
+            </div>
+            <div class="muted" style="margin-top:4px">ถ้าไม่อัปโหลด ระบบจะใช้เสียงเตือนมาตรฐาน (รองรับ MP3/WAV/OGG ไม่เกิน 2MB)</div>
+
+            <label class="row" style="margin-top:16px"><input type="checkbox" id="s_tts" style="width:auto"> อ่านข้อความด้วยเสียง (Text-to-speech)</label>
+            <label style="margin-top:10px">เสียงที่ใช้อ่าน</label>
+            <select id="s_ttsEngine" style="max-width:320px">
+              <option value="browser">เสียงของเบราว์เซอร์ใน OBS (ฟรี)</option>
+              <option value="ai">🤖 AI เสียงพูด (Google Cloud TTS)</option>
+            </select>
+
+            <div id="ttsBrowserBox">
+              <div class="row" style="margin-top:8px;align-items:center">
+                <select id="s_ttsVoice" style="max-width:260px"><option value="">— ค่ามาตรฐานของระบบ (Choose Voice) —</option></select>
+              </div>
+              <div class="muted" style="margin-top:4px">รายชื่อเสียงขึ้นกับเบราว์เซอร์/เครื่องที่รัน OBS ถ้าไม่เจอเสียงที่ตั้งไว้จะใช้ค่ามาตรฐานแทนอัตโนมัติ</div>
+            </div>
+
+            <div id="ttsAiBox" hidden>
+              <div class="row" style="margin-top:8px;align-items:center">
+                <select id="s_ttsAiVoice" style="max-width:320px"></select>
+                <button type="button" class="sm ghost" id="previewAiVoice">▶ ลองฟัง</button>
+              </div>
+              <div class="muted" id="aiTtsNote" style="margin-top:4px">เสียง AI ภาษาไทยที่เป็นธรรมชาติ สร้างบนเซิร์ฟเวอร์แล้วเล่นที่ Overlay — ถ้าสร้างไม่สำเร็จจะใช้เสียงของเบราว์เซอร์แทนอัตโนมัติ</div>
+            </div>
+
+            <label class="row" style="margin-top:16px"><input type="checkbox" id="s_ttsMinEnabled" style="width:auto"> ใช้ยอดเงินขั้นต่ำสำหรับแปลงข้อความเป็นคำพูด</label>
+            <div class="row row-form" style="margin-top:8px">
+              <input id="s_ttsMinAmount" type="number" min="1" style="max-width:150px">
+              <span class="muted">บาท — ต่ำกว่านี้จะใช้ Sound แทน TTS</span>
+            </div>
+
+            <label class="row" style="margin-top:16px"><input type="checkbox" id="s_ttsReadSymbols" style="width:auto"> อ่านสัญลักษณ์ในข้อความ (เช่น @ ~ # *)</label>
+            <label class="row" style="margin-top:10px"><input type="checkbox" id="s_ttsPersist" style="width:auto"> TTS ยังคงอ่านต่อแม้การแจ้งเตือนจะหายไปแล้ว</label>
+            <div class="muted" style="margin:2px 0 0 26px">ถ้าปิด จะตัดเสียง TTS ทันทีที่การแจ้งเตือนหายไป</div>
+          </div>
+
+          <div class="card">
+            <h2>ตัวกรองคำ</h2>
+            <p class="muted">ข้อความให้กำลังใจและชื่อผู้ให้การสนับสนุนจะไม่แสดงหากมีคำต่อไปนี้อยู่ — แยกค่าด้วยเครื่องหมายจุลภาค ตัวอย่างเช่น จิ้งจก, จระเข้</p>
+            <textarea id="s_wordFilter" rows="3" maxlength="100" placeholder="คั่นด้วยเครื่องหมายจุลภาค เช่น คำหยาบ1, คำหยาบ2"></textarea>
+            <div class="muted" id="wordFilterCount" style="margin-top:4px;text-align:right">0/100</div>
+            <p class="muted" style="margin-top:8px">หมายเหตุ: ระบบนี้ไม่มีรายการคำต้องห้ามเริ่มต้นให้ ต้องกรอกคำที่ต้องการกรองเองทั้งหมด</p>
+          </div>
+
+          <div class="card">
+            <h2>ระยะเวลาแจ้งเตือน</h2>
+            <div class="row row-form">
+              <input id="s_dur" type="number" min="10" max="60" style="max-width:110px">
+              <span class="muted">วินาที</span>
+            </div>
+            <p class="muted" style="margin-top:6px">ต่ำสุด 10 วินาที สูงสุด 60 วินาที</p>
+
+            <label style="margin-top:14px">ยอดขั้นต่ำที่จะแสดงแจ้งเตือน (บาท)</label>
+            <input id="s_minalert" type="number" style="max-width:150px">
+          </div>
+
+          <div class="card">
+            <h2>สกุลเงิน (THB)</h2>
+            <label class="row" style="margin:0"><input type="checkbox" id="s_showCurrency" style="width:auto"> แสดงสัญลักษณ์สกุลเงิน (฿)</label>
+          </div>
+
+          <div class="card">
+            <h2>GIF เมื่อได้รับโดเนท</h2>
+            <label class="row" style="margin:0"><input type="checkbox" id="s_gifEnabled" style="width:auto"> แสดง GIF ในแจ้งเตือน</label>
+            <label style="margin-top:10px">ยอดเงินขั้นต่ำที่จะแสดง GIF (บาท)</label>
+            <input id="s_gifMin" type="number" style="max-width:150px">
+            <div class="row" style="margin-top:10px;align-items:center">
+              <label class="btn sm ghost" for="gifInput" style="margin:0">อัปโหลด GIF</label>
+              <input id="gifInput" type="file" accept="image/gif" hidden>
+              <img id="gifPreview" style="height:48px;border-radius:8px;display:none" alt="">
+              <button class="sm ghost" id="removeGif" style="display:none">ลบ GIF</button>
+            </div>
+            <div class="muted" style="margin-top:4px">ไฟล์ GIF เท่านั้น ไม่เกิน 5MB</div>
+          </div>
+
+          <div class="card">
+            <h2>ข้อความเสียงจากผู้สนับสนุน</h2>
+            <p class="muted">ให้ผู้ชมอัดเสียงพูดสั้น ๆ แนบมากับการโดเนท แล้วเล่นที่ Overlay — <b>ปิดโดย default</b> เพราะไม่มีการเซ็นเซอร์เนื้อหา เปิดเมื่อพร้อมรับความเสี่ยงนี้เท่านั้น</p>
+            <label class="row" style="margin:0"><input type="checkbox" id="s_voiceMsgEnabled" style="width:auto"> เปิดใช้งาน</label>
+            <div class="grid c2" style="margin-top:10px">
+              <div><label>ยอดขั้นต่ำที่อัดเสียงได้ (บาท)</label><input id="s_voiceMsgMin" type="number"></div>
+              <div><label>ความยาวสูงสุด (วินาที, 3-15)</label><input id="s_voiceMsgMax" type="number" min="3" max="15"></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <h2>ไฟล์เสียง/เพลงจากผู้สนับสนุน</h2>
+            <p class="muted">ให้ผู้ชมแนบไฟล์เสียง/เพลงมากับการโดเนท แล้วเล่นที่ Overlay — <b>ปิดโดย default</b> เช่นกัน โปรดระวังเรื่องลิขสิทธิ์เพลงที่ผู้ชมแนบมา</p>
+            <label class="row" style="margin:0"><input type="checkbox" id="s_audioMsgEnabled" style="width:auto"> เปิดใช้งาน</label>
+            <div class="grid c2" style="margin-top:10px">
+              <div><label>ยอดขั้นต่ำที่แนบไฟล์ได้ (บาท)</label><input id="s_audioMsgMin" type="number"></div>
+              <div><label>ความยาวสูงสุด (วินาที, 3-30)</label><input id="s_audioMsgMax" type="number" min="3" max="30"></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <h2>แจ้งเตือนที่กำหนดเองตามจำนวนเงินที่ได้รับ</h2>
+            <p class="muted">ตั้งค่าพิเศษเมื่อยอดโดเนทถึงเกณฑ์ที่กำหนด (ยอดสูงกว่ามีสิทธิ์เหนือยอดต่ำกว่า) — override สวิตช์เสียง/TTS/GIF ด้านบนเฉพาะโดเนทที่เข้าเงื่อนไข</p>
+            <div id="tierList"></div>
+            <button class="sm ghost" id="addTier" style="margin-top:10px">+ เพิ่มอีกอันหนึ่ง</button>
           </div>
         </section>
 
         <!-- รับเงิน & รายได้ (สตรีมเมอร์) -->
         <section class="tab-panel" data-panel="earnings">
-          <div class="card">
-            <h2>รายได้ & ถอนเงิน</h2>
-            <p class="muted">รายได้คงเหลือ: <b id="earn2">0</b> บาท</p>
-            <div class="row row-form">
-              <input id="pAmount" type="number" placeholder="จำนวน (ขั้นต่ำ 100)" style="max-width:170px">
-              <input id="pAcc" placeholder="เลขบัญชี / พร้อมเพย์" style="max-width:220px">
-              <button id="pGo">ขอถอนเงิน</button>
+          <div class="seg earnings-switch" style="margin-bottom:16px">
+            <button type="button" data-etab="income">รายได้</button>
+            <button type="button" data-etab="earntx">การทำธุรกรรม</button>
+            <button type="button" data-etab="withdrawals">การถอนเงิน</button>
+          </div>
+
+          <!-- รายได้ -->
+          <div class="earnings-subpanel" data-etab="income">
+            <div class="card">
+              <p class="muted" style="margin:0 0 6px"><b>การถอนเงิน</b></p>
+              <ul class="muted" style="margin:0;padding-left:20px;line-height:1.8">
+                <li>เมื่อขอถอนเงิน คำขอจะเข้าสถานะ "รอดำเนินการ" ทีมงานจะตรวจสอบและโอนเงินเข้าบัญชีที่ระบุไว้ให้ภายในเวลาทำการ</li>
+                <li>ถอนเงินขั้นต่ำ 100 บาทต่อครั้ง ไม่จำกัดจำนวนครั้งต่อวัน</li>
+                <li>ตรวจสอบให้แน่ใจว่าเลขบัญชี/พร้อมเพย์ที่กรอกถูกต้อง มิฉะนั้นอาจทำให้การโอนเงินล่าช้า</li>
+              </ul>
             </div>
-            <div class="tablewrap">
-              <table style="margin-top:12px">
-                <thead><tr><th>เวลา</th><th>จำนวน</th><th>สถานะ</th></tr></thead>
-                <tbody id="payoutHist"></tbody>
-              </table>
+
+            <div class="card">
+              <div class="muted">รายได้</div>
+              <div class="balance" id="earn2">THB0</div>
+
+              <label style="margin-top:16px">จำนวนเงินที่ต้องการถอน (ขั้นต่ำ 100 บาท)</label>
+              <input id="pAmount" type="number" placeholder="จำนวน">
+
+              <button id="pGo" class="pill" style="width:100%;margin-top:16px">คลิกเพื่อดำเนินการต่อ</button>
             </div>
           </div>
 
+          <!-- การทำธุรกรรม -->
+          <div class="earnings-subpanel" data-etab="earntx" hidden>
+            <div class="card">
+              <h2>การทำธุรกรรม</h2>
+              <p class="muted">ประวัติธุรกรรมที่กระทบยอดรายได้ (ได้รับโดเนทและถอนเงิน) เรียงจากล่าสุด</p>
+              <input id="earnTxSearch" placeholder="🔍 ค้นหาวันที่ เวลา ประเภท หรือหมายเหตุ เช่น 6/10/2569, 14:30" style="max-width:420px">
+              <div class="row" style="margin-top:10px">
+                <a href="#" id="earnTxExportExcel" class="sm">ดาวน์โหลดข้อมูลลง Excel</a>
+                <a href="#" id="earnTxExportPdf" class="sm">ดาวน์โหลดข้อมูลลง PDF</a>
+              </div>
+              <div class="tablewrap" style="margin-top:14px">
+                <table>
+                  <thead><tr><th>เวลา</th><th>ประเภท</th><th>จำนวน</th><th>ยอดคงเหลือ</th><th>หมายเหตุ</th></tr></thead>
+                  <tbody id="recvHist"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- การถอนเงิน -->
+          <div class="earnings-subpanel" data-etab="withdrawals" hidden>
+            <div class="card">
+              <h2>การถอนเงิน</h2>
+              <div class="tablewrap">
+                <table>
+                  <thead><tr><th>เวลา</th><th>จำนวน</th><th>ถอนไปยัง</th><th>สถานะ</th><th>หลักฐานการโอน / หมายเหตุ</th></tr></thead>
+                  <tbody id="payoutHist"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ทุกธุรกรรม (สตรีมเมอร์) -->
+        <section class="tab-panel" data-panel="transactions">
+          <div class="seg support-switch" style="margin-bottom:16px">
+            <button type="button" data-tab="transactions">ทุกธุรกรรม</button>
+            <button type="button" data-tab="leaderboard">ผู้สนับสนุน</button>
+            <button type="button" data-tab="stats">การวิเคราะห์</button>
+          </div>
+
           <div class="card">
-            <h2>โดเนทที่ได้รับ</h2>
-            <div class="tablewrap">
+            <h2>ทุกธุรกรรม</h2>
+            <p class="muted">ประวัติโดเนทที่ได้รับทั้งหมด (200 รายการล่าสุด)</p>
+            <input id="txSearch" placeholder="🔍 ค้นหาชื่อ หรือวันที่ เช่น 6/10/2569, ต.ค." style="max-width:360px">
+            <div class="row" style="margin-top:10px">
+              <a href="#" id="txExportExcel" class="sm">ดาวน์โหลดข้อมูลลง Excel</a>
+              <a href="#" id="txExportPdf" class="sm">ดาวน์โหลดข้อมูลลง PDF</a>
+            </div>
+            <div class="tablewrap" style="margin-top:14px">
               <table>
-                <thead><tr><th>เวลา</th><th>ผู้ส่ง</th><th>จำนวน</th><th>รับสุทธิ</th><th>ข้อความ</th></tr></thead>
-                <tbody id="recvHist"></tbody>
+                <thead>
+                  <tr>
+                    <th data-sort="display_name" class="sortable">ชื่อ <span class="sort-ic" aria-hidden="true"></span></th>
+                    <th data-sort="created_at" class="sortable">วันที่และเวลา <span class="sort-ic" aria-hidden="true"></span></th>
+                    <th data-sort="amount" class="sortable">จำนวนเงิน <span class="sort-ic" aria-hidden="true"></span></th>
+                    <th>รับสุทธิ</th>
+                    <th>สติกเกอร์</th>
+                    <th>ข้อความ</th>
+                  </tr>
+                </thead>
+                <tbody id="allTxHist"></tbody>
               </table>
             </div>
           </div>
@@ -161,6 +432,12 @@
 
         <!-- หน้าจัดการ / สถิติ (สตรีมเมอร์) -->
         <section class="tab-panel" data-panel="stats">
+          <div class="seg support-switch" style="margin-bottom:16px">
+            <button type="button" data-tab="transactions">ทุกธุรกรรม</button>
+            <button type="button" data-tab="leaderboard">ผู้สนับสนุน</button>
+            <button type="button" data-tab="stats">การวิเคราะห์</button>
+          </div>
+
           <div class="card">
             <h2>สถิติภาพรวม</h2>
             <div class="grid c3" id="statTiles"></div>
@@ -176,6 +453,7 @@
                   <button data-metric="views">ผู้เข้าชม</button>
                 </div>
                 <div class="seg" id="rangeSeg">
+                  <button data-days="1">วันนี้</button>
                   <button data-days="7">7 วัน</button>
                   <button data-days="14" class="active">14 วัน</button>
                   <button data-days="30">30 วัน</button>
@@ -195,12 +473,29 @@
 
         <!-- อันดับผู้โดเนท (สตรีมเมอร์) -->
         <section class="tab-panel" data-panel="leaderboard">
+          <div class="seg support-switch" style="margin-bottom:16px">
+            <button type="button" data-tab="transactions">ทุกธุรกรรม</button>
+            <button type="button" data-tab="leaderboard">ผู้สนับสนุน</button>
+            <button type="button" data-tab="stats">การวิเคราะห์</button>
+          </div>
+
           <div class="card">
-            <h2>อันดับผู้โดเนท</h2>
-            <p class="muted">เรียงจากยอดโดเนทสะสมมากไปน้อย</p>
-            <div class="tablewrap">
+            <h2>ข้อมูลผู้สนับสนุน</h2>
+            <input id="suppSearch" placeholder="🔍 ค้นหาชื่อ" style="max-width:320px">
+            <div class="row" style="margin-top:10px">
+              <a href="#" id="suppExportExcel" class="sm">ดาวน์โหลดข้อมูลลง Excel</a>
+              <a href="#" id="suppExportPdf" class="sm">ดาวน์โหลดข้อมูลลง PDF</a>
+            </div>
+            <div class="tablewrap" style="margin-top:14px">
               <table>
-                <thead><tr><th>#</th><th>ผู้โดเนท</th><th>ยอดรวม</th><th>จำนวนครั้ง</th></tr></thead>
+                <thead>
+                  <tr>
+                    <th data-sort="display_name" class="sortable">ชื่อ <span class="sort-ic" aria-hidden="true"></span></th>
+                    <th data-sort="count" class="sortable">ธุรกรรม <span class="sort-ic" aria-hidden="true"></span></th>
+                    <th data-sort="total" class="sortable">จำนวนเงินทั้งหมด <span class="sort-ic" aria-hidden="true"></span></th>
+                    <th>อีเมล</th>
+                  </tr>
+                </thead>
                 <tbody id="donorRank"></tbody>
               </table>
             </div>
@@ -217,12 +512,24 @@
               <div>
                 <label class="btn sm ghost" for="avatarInput" style="margin:0;display:inline-block">เปลี่ยนรูปโปรไฟล์</label>
                 <input id="avatarInput" type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden>
-                <div class="muted" style="margin-top:6px">รองรับ PNG, JPG, WEBP, GIF ขนาดไม่เกิน 3MB</div>
+                <div class="muted" style="margin-top:6px">รองรับ PNG, JPG, WEBP, GIF ขนาดไม่เกิน 10MB — ครอบตัดและหมุนได้ก่อนบันทึก</div>
               </div>
             </div>
             <div style="margin-top:16px">
               <div class="balance" id="acctDisplayName" style="font-size:20px"></div>
               <div class="muted" id="acctRoleLabel"></div>
+            </div>
+
+            <h3>รูปพื้นหลัง</h3>
+            <p class="muted" style="margin:0 0 10px">แสดงเป็นปกการ์ดของคุณในหน้าสตรีมเมอร์ — แนะนำรูปแนวนอน (เช่น 1200×400)</p>
+            <div class="cover-edit">
+              <div class="cover-preview" id="coverPreview"><span id="coverEmpty">ยังไม่มีรูปพื้นหลัง</span></div>
+              <div class="row" style="margin-top:10px">
+                <label class="btn sm ghost" for="coverInput" style="margin:0">อัปโหลดรูปพื้นหลัง</label>
+                <input id="coverInput" type="file" accept="image/png,image/jpeg,image/webp" hidden>
+                <button type="button" class="sm ghost" id="removeCover" hidden>ลบรูปพื้นหลัง</button>
+              </div>
+              <div class="muted" style="margin-top:6px">รองรับ PNG, JPG, WEBP ขนาดไม่เกิน 10MB — ครอบตัดและหมุนได้ก่อนบันทึก</div>
             </div>
           </div>
 
@@ -246,45 +553,73 @@
           </div>
 
           <div class="card">
+            <h2>โปรไฟล์สาธารณะ</h2>
+            <p class="muted">แสดงในหน้ารายชื่อสตรีมเมอร์ ให้ผู้ชมรู้จักคุณก่อนโดเนท</p>
+            <label>หมวดหมู่ครีเอเตอร์</label>
+            <select id="p_category">
+              <option value="">— ไม่ระบุ —</option>
+              <option value="เกม">เกม</option>
+              <option value="ศิลปะ">ศิลปะ</option>
+              <option value="ดนตรี">ดนตรี</option>
+              <option value="อาหาร">อาหาร</option>
+              <option value="ท่องเที่ยว">ท่องเที่ยว</option>
+              <option value="การศึกษา">การศึกษา</option>
+              <option value="ไลฟ์สไตล์">ไลฟ์สไตล์</option>
+              <option value="กีฬา">กีฬา</option>
+              <option value="ธุรกิจ">ธุรกิจ</option>
+              <option value="อื่นๆ">อื่นๆ</option>
+            </select>
+            <label>คำอธิบายตัวตน (Bio)</label>
+            <textarea id="p_bio" rows="3" maxlength="160" placeholder="แนะนำตัวสั้น ๆ ให้ผู้สนับสนุนรู้จักคุณ"></textarea>
+            <div class="muted" id="bioCount" style="margin-top:4px;text-align:right">0/160</div>
+
+            <label>ลิงก์โซเชียลมีเดีย</label>
+            <div class="social-edit-row">
+              <button type="button" class="social-edit-btn" id="openSocial">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4H5a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h13a2 2 0 0 0 2-2v-6"/><path d="M18.5 2.5a2.1 2.1 0 0 1 3 3L12 15l-4 1 1-4z"/></svg>
+                โซเชียลมีเดีย
+              </button>
+              <div id="socialPreview" class="social-row"></div>
+            </div>
+
+            <div style="margin-top:14px"><button class="sm" id="saveBio">บันทึกโปรไฟล์สาธารณะ</button></div>
+          </div>
+
+          <div class="card">
             <h2>ข้อมูลผู้ใช้งาน</h2>
             <p class="muted">ข้อมูลส่วนนี้ไม่บังคับกรอก จะใส่หรือไม่ใส่ก็ได้</p>
 
-            <label>ชื่อจริง</label>
-            <input id="p_first">
-            <label>นามสกุล</label>
-            <input id="p_last">
-            <label>ชื่อเล่น</label>
-            <input id="p_nickname">
-            <label>เลขบัตรประชาชน</label>
-            <input id="p_nid" maxlength="13" inputmode="numeric">
-            <label>วันเกิด</label>
-            <input id="p_dob" type="date">
-            <label>ที่อยู่ (บ้านเลขที่ / หมู่ / ถนน)</label>
-            <input id="p_addr">
+            <div class="form-grid">
+              <div><label>ชื่อจริง</label><input id="p_first"></div>
+              <div><label>นามสกุล</label><input id="p_last"></div>
+              <div><label>ชื่อเล่น</label><input id="p_nickname"></div>
+              <div><label>เลขบัตรประชาชน</label><input id="p_nid" maxlength="13" inputmode="numeric"></div>
+              <div><label>วันเกิด</label><input id="p_dob" type="date"></div>
+              <div><label>ที่อยู่ (บ้านเลขที่ / หมู่ / ถนน)</label><input id="p_addr"></div>
+            </div>
             <label>ค้นหาตำบล/อำเภอ/จังหวัด/รหัสไปรษณีย์</label>
             <div class="addr-search-wrap">
               <input id="p_addrSearch" placeholder="พิมพ์เพื่อค้นหา เช่น ลำพูน หรือ 39000" autocomplete="off">
               <div class="addr-suggest" id="p_addrSuggest" hidden></div>
             </div>
-            <div class="grid c2" style="margin-top:10px">
+            <div class="form-grid">
               <div><label>จังหวัด</label><input id="p_province" readonly></div>
               <div><label>อำเภอ/เขต</label><input id="p_district" readonly></div>
               <div><label>ตำบล/แขวง</label><input id="p_subdistrict" readonly></div>
               <div><label>รหัสไปรษณีย์</label><input id="p_zip" readonly></div>
             </div>
 
-            <div style="margin-top:14px"><button id="saveProfile">บันทึกข้อมูลผู้ใช้งาน</button></div>
+            <div class="form-actions"><button id="saveProfile">บันทึกข้อมูลผู้ใช้งาน</button></div>
           </div>
 
           <div class="card">
             <h2>เปลี่ยนรหัสผ่าน</h2>
-            <label>รหัสผ่านปัจจุบัน</label>
-            <input id="pwCur" type="password">
-            <label>รหัสผ่านใหม่</label>
-            <input id="pwNew" type="password">
-            <label>ยืนยันรหัสผ่านใหม่</label>
-            <input id="pwConfirm" type="password">
-            <div style="margin-top:14px"><button id="savePw">เปลี่ยนรหัสผ่าน</button></div>
+            <div class="form-grid c3">
+              <div><label>รหัสผ่านปัจจุบัน</label><input id="pwCur" type="password" autocomplete="current-password"></div>
+              <div><label>รหัสผ่านใหม่</label><input id="pwNew" type="password" autocomplete="new-password"></div>
+              <div><label>ยืนยันรหัสผ่านใหม่</label><input id="pwConfirm" type="password" autocomplete="new-password"></div>
+            </div>
+            <div class="form-actions"><button id="savePw">เปลี่ยนรหัสผ่าน</button></div>
           </div>
         </section>
 
@@ -292,6 +627,109 @@
     </div>
   </div>
 
+  <div class="modal-overlay" id="socialModal" hidden>
+    <div class="social-modal" role="dialog" aria-modal="true" aria-label="ลิงก์โซเชียลมีเดีย">
+      <button class="modal-close" id="socialClose" aria-label="ปิด">✕</button>
+      <div id="socialFields"></div>
+      <button type="button" class="social-done" id="socialDone">เสร็จแล้ว</button>
+    </div>
+  </div>
+
+  <!-- ถอนเงิน: 1) เลือกช่องทางรับเงิน (กด Edit กรอกข้อมูล) → 2) ตรวจสอบข้อมูลก่อนกดตกลง -->
+  <div class="modal-overlay wd-overlay" id="wdModal" hidden>
+    <div class="wd-box" role="dialog" aria-modal="true" aria-label="ถอนเงิน">
+      <button type="button" class="modal-close" id="wdClose" aria-label="ปิด">×</button>
+
+      <div id="wdStep1">
+        <div class="wd-muted">รายได้คงเหลือ</div>
+        <div class="wd-bal" id="wdBal">฿0</div>
+        <div class="wd-amt">จำนวนที่ถอน <b id="wdAmt"></b></div>
+        <div class="wd-to">ถอนไปยัง:</div>
+        <div class="wd-methods" id="wdMethods"></div>
+        <button type="button" class="wd-btn" id="wdNext">ถัดไป</button>
+      </div>
+
+      <div id="wdStep2" hidden>
+        <div class="wd-head">ตรวจสอบข้อมูลก่อนยืนยัน</div>
+        <div class="wd-review" id="wdReview"></div>
+        <p class="wd-note">โปรดตรวจสอบเลขบัญชีและชื่อผู้รับให้ถูกต้อง หากข้อมูลผิดอาจทำให้การโอนเงินล่าช้า — คำขอจะเข้าสถานะ "รอดำเนินการ" และทีมงานจะโอนให้ภายในเวลาทำการ</p>
+        <div class="wd-actions">
+          <button type="button" class="wd-back" id="wdBack">ย้อนกลับ</button>
+          <button type="button" class="wd-btn" id="wdConfirm">ตกลง</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- กรอก/แก้ไขบัญชีรับเงิน (กด Edit) -->
+  <div class="modal-overlay wd-overlay" id="accModal" hidden>
+    <div class="wd-box" role="dialog" aria-modal="true" aria-labelledby="accTitle">
+      <button type="button" class="modal-close" id="accClose" aria-label="ปิด">×</button>
+      <div class="wd-head" id="accTitle">บัญชีธนาคาร</div>
+      <div id="accBankRow">
+        <label>ชื่อธนาคาร</label>
+        <select id="accBank"><option value="">เลือกธนาคาร</option></select>
+      </div>
+      <label id="accNumLabel">หมายเลขบัญชีธนาคาร</label>
+      <input id="accNumber" inputmode="numeric" autocomplete="off">
+      <div class="muted" id="accNumHint" style="margin-top:4px"></div>
+      <div class="form-grid">
+        <div><label>ชื่อผู้รับ</label><input id="accFirst" placeholder="ชื่อ"></div>
+        <div><label>นามสกุลผู้รับ</label><input id="accLast" placeholder="นามสกุล"></div>
+      </div>
+      <button type="button" class="wd-btn" id="accSave" style="margin-top:20px">บันทึก</button>
+    </div>
+  </div>
+
+  <!-- เปลี่ยนรูปโปรไฟล์ / รูปพื้นหลัง: 1) Crop & rotate → 2) ดูตัวอย่าง (วงกลม / สี่เหลี่ยม 3:1) → 3) กำลังบันทึก -->
+  <div class="modal-overlay av-overlay" id="avatarModal" hidden>
+    <div class="av-box av-crop" id="avStepCrop">
+      <div class="av-head">
+        <button type="button" class="av-icon-btn" id="avBack" title="ยกเลิก" aria-label="ยกเลิก">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        </button>
+        <div class="av-title">ครอบตัดและหมุน</div>
+        <span style="width:40px"></span>
+      </div>
+      <div class="av-stage"><img id="avCropImg" alt=""></div>
+      <button type="button" class="av-tool" id="avRotate">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
+        <span>หมุน</span>
+      </button>
+      <button type="button" class="av-primary" id="avNext">ถัดไป</button>
+    </div>
+
+    <div class="av-box av-confirm" id="avStepConfirm" hidden>
+      <div class="av-title" id="avConfirmTitle">รูปโปรไฟล์ใหม่ของคุณ</div>
+      <div class="av-chip">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></svg>
+        ทุกคนมองเห็น
+      </div>
+      <img class="av-circle" id="avResult" alt="">
+      <div class="av-info">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+        <span id="avInfoText">รูปนี้จะแสดงบนแถบเมนู หน้าโดเนท และรายชื่อสตรีมเมอร์</span>
+      </div>
+      <div class="av-actions">
+        <button type="button" class="av-text-btn" id="avCancel">ยกเลิก</button>
+        <button type="button" class="av-primary" id="avSave">บันทึกเป็นรูปโปรไฟล์</button>
+      </div>
+    </div>
+
+    <div class="av-box av-saving" id="avStepSaving" hidden>
+      <div class="av-ring">
+        <img id="avSavingImg" alt="">
+        <svg class="av-spin" viewBox="0 0 100 100"><circle cx="50" cy="50" r="47"/></svg>
+      </div>
+      <div class="av-saving-text" id="avSavingText">กำลังบันทึกรูปโปรไฟล์…</div>
+    </div>
+  </div>
+
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
   <script src="/js/dashboard.js"></script>
 </body>
 </html>

@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>สตรีมเมอร์ · Donate Stream</title>
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="/js/common.js"></script>
+
+  <div class="container sd-wrap">
+    <div class="sd-hero">
+      <h1 class="sd-title">STREAMER<br><span>DISCOVERY</span></h1>
+      <div class="sd-hero-right">
+        <p>ค้นพบสตรีมเมอร์ที่น่าสนใจ เลือกดูตามหมวดหมู่ที่ชอบ<br>หรือลองเจอคนใหม่ ๆ ที่คุณอาจจะชอบ</p>
+        <label class="sd-search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+          <input id="slSearch" type="search" placeholder="ค้นหาสตรีมเมอร์..." autocomplete="off" aria-label="ค้นหาสตรีมเมอร์">
+        </label>
+      </div>
+    </div>
+
+    <!-- สตรีมเมอร์แนะนำวันนี้ (สุ่มใหม่ทุกวัน) — ซ่อนตอนกำลังค้นหา -->
+    <section class="sd-section" id="featuredSec" hidden>
+      <div class="sd-sec-head">
+        <span class="sd-sec-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 3 11 8l5 1.5-5 1.5-1.5 5L8 11 3 9.5 8 8z"/><path d="M18 14l.8 2.2L21 17l-2.2.8L18 20l-.8-2.2L15 17l2.2-.8z"/></svg></span>
+        <div><h2>สตรีมเมอร์แนะนำวันนี้</h2><div class="sd-sec-sub">Featured Streamers</div></div>
+        <a href="#allSec" class="sd-all-btn" id="seeAll">ดูทั้งหมด <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+      </div>
+      <div class="sd-grid" id="featured"></div>
+    </section>
+
+    <section class="sd-section" id="allSec">
+      <div class="sd-sec-head">
+        <span class="sd-sec-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8M18 14.3a6.5 6.5 0 0 1 3.5 5.7"/></svg></span>
+        <div><h2 id="allTitle">สตรีมเมอร์ทั้งหมด</h2><div class="sd-sec-sub" id="slCount">All Streamers</div></div>
+      </div>
+      <div class="sd-grid" id="streamers"></div>
+      <p class="muted" id="slEmpty" hidden style="text-align:center;margin:24px 0 6px"></p>
+    </section>
+  </div>
+
+  <!-- โปรไฟล์สตรีมเมอร์ (คลิกการ์ด) -->
+  <div class="modal-overlay" id="spModal" hidden>
+    <div class="modal-box sp-box" role="dialog" aria-modal="true" aria-labelledby="spName">
+      <button class="modal-close" id="spClose" aria-label="ปิด">✕</button>
+      <div class="sp-top">
+        <div id="spAvatar"></div>
+        <h2 class="sp-name" id="spName"></h2>
+        <div class="muted" id="spUser"></div>
+        <div id="spCat"></div>
+      </div>
+      <div class="sp-sec">
+        <div class="sp-label">คำอธิบายตัวตน</div>
+        <div id="spBio"></div>
+      </div>
+      <div class="sp-sec">
+        <div class="sp-label">ลิงก์โซเชียลมีเดีย</div>
+        <div id="spLinks"></div>
+      </div>
+      <a class="btn sp-donate" id="spDonate">โดเนทให้สตรีมเมอร์คนนี้</a>
+    </div>
+  </div>
+
+  <script src="/js/streamers.js"></script>
+</body>
+</html>

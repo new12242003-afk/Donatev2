@@ -4,22 +4,43 @@ const { db, setConfigValue } = require('../db');
 const { requireAuth, requireRole } = require('../auth');
 const ledger = require('../ledger');
 const { now, clean, token } = require('../util');
+const slips = require('../slips');
+const notify = require('../notify');
 
 const router = express.Router();
 router.use(requireAuth, requireRole('admin'));
 
 router.get('/stats', (req, res) => {
+  const DAY = 24 * 60 * 60 * 1000;
+  const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0);
+  const today = startOfToday.getTime();
   const users = db.prepare('SELECT role, COUNT(*) c FROM users GROUP BY role').all();
-  const donations = db.prepare('SELECT COUNT(*) c, COALESCE(SUM(total_cost),0) v FROM donations').get();
+  const donations = db.prepare('SELECT COUNT(*) c, COALESCE(SUM(total_cost),0) v, COALESCE(SUM(platform_fee),0) fee FROM donations').get();
+  const donToday = db.prepare('SELECT COUNT(*) c, COALESCE(SUM(total_cost),0) v FROM donations WHERE created_at >= ?').get(today);
   const tp = db.prepare("SELECT COALESCE(SUM(amount_baht),0) v FROM topups WHERE status = 'paid'").get();
-  const pend = db.prepare("SELECT COUNT(*) c FROM payouts WHERE status = 'pending'").get();
-  res.json({ users, donations, topup_total: tp.v, pending_payouts: pend.c });
+  const tpToday = db.prepare("SELECT COALESCE(SUM(amount_baht),0) v FROM topups WHERE status = 'paid' AND paid_at >= ?").get(today);
+  const pend = db.prepare("SELECT COUNT(*) c, COALESCE(SUM(amount),0) v FROM payouts WHERE status = 'pending'").get();
+  const newUsers = db.prepare('SELECT COUNT(*) c FROM users WHERE created_at >= ?').get(today - 6 * DAY);
+  // ยอดโดเนทรายวัน 14 วันล่าสุด (รวมวันนี้) สำหรับกราฟในหน้าภาพรวม
+  const from = today - 13 * DAY;
+  const rows = db.prepare('SELECT created_at, total_cost FROM donations WHERE created_at >= ?').all(from);
+  const series = Array.from({ length: 14 }, (_, i) => ({ day: from + i * DAY, v: 0, c: 0 }));
+  rows.forEach((r) => {
+    const i = Math.floor((r.created_at - from) / DAY);
+    if (series[i]) { series[i].v += r.total_cost; series[i].c += 1; }
+  });
+  res.json({
+    users, donations, topup_total: tp.v, pending_payouts: pend.c,
+    pending_payout_amount: pend.v, platform_fee_total: donations.fee,
+    today: { donations: donToday.c, donation_value: donToday.v, topup: tpToday.v },
+    new_users_7d: newUsers.c, series,
+  });
 });
 
 // ---------- users ----------
 router.get('/users', (req, res) => {
   const q = '%' + String(req.query.q || '').toLowerCase() + '%';
-  res.json(db.prepare(`SELECT id, username, email, role, display_name, email_verified,
+  res.json(db.prepare(`SELECT id, username, email, role, display_name, avatar_url, email_verified,
       token_balance, earnings_balance, overlay_key, banned, created_at
     FROM users
     WHERE lower(username) LIKE ? OR lower(IFNULL(email,'')) LIKE ?
@@ -136,20 +157,50 @@ router.get('/payouts', (req, res) => {
     ORDER BY p.id DESC LIMIT 200`).all());
 });
 
+// จ่ายแล้ว (แนบสลิปการโอนได้) / ปฏิเสธ (คืนยอดเข้ารายได้ + ระบุเหตุผล) — แจ้งเตือนเจ้าของคำขอ
 router.post('/payouts/:id/process', (req, res) => {
   const p = db.prepare('SELECT * FROM payouts WHERE id = ?').get(req.params.id);
   if (!p) return res.status(404).json({ error: 'ไม่พบรายการ' });
   if (p.status !== 'pending') return res.status(400).json({ error: 'รายการนี้ถูกดำเนินการแล้ว' });
   const status = ['paid', 'rejected'].includes(req.body.status) ? req.body.status : 'paid';
+  const note = clean(req.body.note || '', 200);
+  if (status === 'rejected' && !note) return res.status(400).json({ error: 'กรุณาระบุเหตุผลที่ปฏิเสธ' });
+
+  let slipFile = null;
+  if (status === 'paid' && req.body.slip) {
+    const r = slips.saveSlip(p.id, req.body.slip);
+    if (r.error) return res.status(400).json({ error: r.error });
+    slipFile = r.file;
+  }
 
   db.transaction(() => {
-    db.prepare('UPDATE payouts SET status=?, processed_at=?, note=? WHERE id=?')
-      .run(status, now(), clean(req.body.note || '', 200), p.id);
+    db.prepare('UPDATE payouts SET status=?, processed_at=?, note=?, slip_file=? WHERE id=?')
+      .run(status, now(), note, slipFile, p.id);
     if (status === 'rejected') {
       ledger.credit(p.user_id, 'earnings_balance', p.amount, 'withdraw_refund', 'payout', p.id, 'คืนยอดคำขอถอนที่ถูกปฏิเสธ');
     }
   })();
+  notify.payoutProcessed(p, status, note);
+  req.app.get('io').to('user:' + p.user_id).emit('payout:updated', { id: p.id, status });
   res.json({ ok: true });
+});
+
+// แนบ/เปลี่ยนสลิปให้รายการที่จ่ายไปแล้ว (เช่น ลืมแนบตอนกดจ่าย)
+router.post('/payouts/:id/slip', (req, res) => {
+  const p = db.prepare('SELECT * FROM payouts WHERE id = ?').get(req.params.id);
+  if (!p) return res.status(404).json({ error: 'ไม่พบรายการ' });
+  if (p.status !== 'paid') return res.status(400).json({ error: 'แนบสลิปได้เฉพาะรายการที่จ่ายแล้ว' });
+  const r = slips.saveSlip(p.id, req.body.slip);
+  if (r.error) return res.status(400).json({ error: r.error });
+  db.prepare('UPDATE payouts SET slip_file = ? WHERE id = ?').run(r.file, p.id);
+  slips.removeSlip(p.slip_file);
+  req.app.get('io').to('user:' + p.user_id).emit('payout:updated', { id: p.id, status: p.status });
+  res.json({ ok: true });
+});
+
+router.get('/payouts/:id/slip', (req, res) => {
+  const p = db.prepare('SELECT slip_file FROM payouts WHERE id = ?').get(req.params.id);
+  slips.sendSlip(res, p && p.slip_file);
 });
 
 module.exports = router;

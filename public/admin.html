@@ -7,90 +7,239 @@
   <link rel="stylesheet" href="/css/app.css">
 </head>
 <body>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   <script src="/js/common.js"></script>
-  <div class="container">
-    <div class="card"><h2>ภาพรวมระบบ</h2><div id="stats" class="grid c3"></div></div>
 
-    <div class="card">
-      <h2>จัดการผู้ใช้งาน</h2>
-      <div class="row" style="margin-bottom:10px">
-        <input id="q" placeholder="ค้นหา username / email" style="max-width:260px">
-        <button class="sm" id="search">ค้นหา</button>
+  <div class="container adm">
+    <div class="adm-hero">
+      <div>
+        <div class="adm-kicker">ADMIN CONSOLE</div>
+        <h1 class="adm-title">แผงควบคุมแอดมิน</h1>
+        <div class="muted" id="admToday"></div>
       </div>
-      <div class="tablewrap">
-        <table>
-          <thead><tr><th>ID</th><th>Username</th><th>Email</th><th>บทบาท</th><th>Token</th><th>รายได้</th><th>ยืนยัน</th><th>สถานะ</th><th>จัดการ</th></tr></thead>
-          <tbody id="users"></tbody>
-        </table>
-      </div>
+      <button type="button" class="pill ghost" id="admRefresh">⟳ รีเฟรชข้อมูล</button>
     </div>
 
-    <div class="card">
-      <h2>จัดการสติกเกอร์</h2>
-      <div class="tablewrap">
-        <table>
-          <thead><tr><th>code</th><th>ชื่อ</th><th>emoji</th><th>ราคา</th><th>animation</th><th>เปิด</th><th></th></tr></thead>
-          <tbody id="stickers"></tbody>
-        </table>
-      </div>
-      <h3>เพิ่มสติกเกอร์ใหม่</h3>
-      <div class="row">
-        <input id="ns_code" placeholder="code" style="max-width:110px">
-        <input id="ns_name" placeholder="ชื่อ" style="max-width:130px">
-        <input id="ns_emoji" placeholder="emoji" style="max-width:80px">
-        <input id="ns_cost" type="number" placeholder="ราคา" style="max-width:90px">
-        <select id="ns_anim" style="max-width:120px">
-          <option>float</option><option>rain</option><option>bounce</option>
-          <option>zoom</option><option>spin</option><option>fly</option><option>shake</option>
-        </select>
-        <button class="sm" id="addSticker">เพิ่ม</button>
-      </div>
-      <p class="muted">animation: float=ลอยขึ้น, rain=ตกลงมา, bounce=เด้ง, zoom=ซูม, spin=หมุน, fly=บินข้าม, shake=สั่น</p>
-    </div>
+    <div class="dash-layout">
+      <nav class="sidebar adm-side" id="admNav">
+        <div class="sidebar-section">ภาพรวม</div>
+        <button class="sidebar-item" data-atab="overview"><span class="ic">📊</span> แดชบอร์ด</button>
+        <div class="sidebar-section">จัดการ</div>
+        <button class="sidebar-item" data-atab="users"><span class="ic">👥</span> ผู้ใช้งาน</button>
+        <button class="sidebar-item" data-atab="payouts"><span class="ic">🏦</span> คำขอถอนเงิน <span class="adm-badge" id="navPayoutBadge" hidden></span></button>
+        <button class="sidebar-item" data-atab="donations"><span class="ic">💸</span> โดเนท</button>
+        <button class="sidebar-item" data-atab="topups"><span class="ic">💳</span> เติมเงิน</button>
+        <button class="sidebar-item" data-atab="stickers"><span class="ic">✨</span> สติกเกอร์</button>
+        <div class="sidebar-section">ระบบ</div>
+        <button class="sidebar-item" data-atab="settings"><span class="ic">⚙️</span> ตั้งค่าระบบ</button>
+      </nav>
 
-    <div class="card">
-      <h2>ตั้งค่าระบบ</h2>
-      <div class="grid c2">
-        <div><label>ชื่อเว็บไซต์</label><input id="c_site"></div>
-        <div><label>ค่าธรรมเนียมแพลตฟอร์ม (%)</label><input id="c_fee" type="number"></div>
-        <div><label>โดเนทขั้นต่ำเริ่มต้น (บาท)</label><input id="c_min" type="number"></div>
-        <div><label>โดเนทสูงสุดเริ่มต้น (บาท)</label><input id="c_max" type="number"></div>
-        <div><label>แพ็กเกจเติมเงิน (JSON array)</label><input id="c_pkg"></div>
-      </div>
-      <div style="margin-top:12px"><button id="saveCfg">บันทึก</button></div>
-    </div>
+      <div class="dash-content">
 
-    <div class="card">
-      <h2>โดเนทล่าสุด</h2>
-      <div class="tablewrap">
-        <table>
-          <thead><tr><th>เวลา</th><th>ผู้ส่ง</th><th>→ สตรีมเมอร์</th><th>จำนวน</th><th>สติกเกอร์</th><th>ข้อความ</th></tr></thead>
-          <tbody id="don"></tbody>
-        </table>
-      </div>
-    </div>
+        <!-- ภาพรวม -->
+        <section class="adm-panel" data-apanel="overview">
+          <div class="adm-kpis" id="kpis"></div>
 
-    <div class="card">
-      <h2>เติมเงินล่าสุด</h2>
-      <div class="tablewrap">
-        <table>
-          <thead><tr><th>เวลา</th><th>ผู้ใช้</th><th>บาท</th><th>วิธี</th><th>สถานะ</th></tr></thead>
-          <tbody id="tp"></tbody>
-        </table>
-      </div>
-    </div>
+          <div class="card">
+            <div class="adm-card-head">
+              <div><h2>ยอดโดเนท 14 วันล่าสุด</h2><div class="muted" id="chartSub"></div></div>
+            </div>
+            <div class="adm-chart" id="admChart"></div>
+          </div>
 
-    <div class="card">
-      <h2>คำขอถอนเงิน</h2>
-      <div class="tablewrap">
-        <table>
-          <thead><tr><th>เวลา</th><th>ผู้ใช้</th><th>จำนวน</th><th>บัญชี</th><th>สถานะ</th><th>จัดการ</th></tr></thead>
-          <tbody id="po"></tbody>
-        </table>
+          <div class="adm-two">
+            <div class="card">
+              <div class="adm-card-head">
+                <h2>คำขอถอนที่รอดำเนินการ</h2>
+                <button type="button" class="sm ghost" data-goto="payouts">ดูทั้งหมด →</button>
+              </div>
+              <div class="adm-list" id="ovPayouts"></div>
+            </div>
+            <div class="card">
+              <div class="adm-card-head">
+                <h2>โดเนทล่าสุด</h2>
+                <button type="button" class="sm ghost" data-goto="donations">ดูทั้งหมด →</button>
+              </div>
+              <div class="adm-list" id="ovDonations"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ผู้ใช้งาน -->
+        <section class="adm-panel" data-apanel="users" hidden>
+          <div class="card">
+            <div class="adm-card-head">
+              <div><h2>ผู้ใช้งาน</h2><div class="muted" id="usersCount"></div></div>
+            </div>
+            <div class="adm-toolbar">
+              <label class="adm-search">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+                <input id="q" type="search" placeholder="ค้นหา username / email / ชื่อ" autocomplete="off">
+              </label>
+              <div class="adm-chips" id="roleFilter">
+                <button type="button" data-f="all" class="active">ทั้งหมด</button>
+                <button type="button" data-f="streamer">สตรีมเมอร์</button>
+                <button type="button" data-f="donor">ผู้โดเนท</button>
+                <button type="button" data-f="admin">แอดมิน</button>
+                <button type="button" data-f="banned">ถูกระงับ</button>
+              </div>
+            </div>
+            <div class="tablewrap">
+              <table class="adm-table">
+                <thead><tr><th>ผู้ใช้</th><th>บทบาท</th><th>Token</th><th>รายได้</th><th>สถานะ</th><th>สมัครเมื่อ</th><th></th></tr></thead>
+                <tbody id="users"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- คำขอถอนเงิน -->
+        <section class="adm-panel" data-apanel="payouts" hidden>
+          <div class="card">
+            <div class="adm-card-head">
+              <div><h2>คำขอถอนเงิน</h2><div class="muted" id="poSummary"></div></div>
+            </div>
+            <div class="adm-toolbar">
+              <div class="adm-chips" id="poFilter">
+                <button type="button" data-f="pending" class="active">รอดำเนินการ</button>
+                <button type="button" data-f="paid">โอนแล้ว</button>
+                <button type="button" data-f="rejected">ปฏิเสธ</button>
+                <button type="button" data-f="all">ทั้งหมด</button>
+              </div>
+            </div>
+            <div class="tablewrap">
+              <table class="adm-table">
+                <thead><tr><th>เวลา</th><th>ผู้ใช้</th><th>จำนวน</th><th>บัญชีปลายทาง</th><th>สถานะ</th><th>จัดการ</th></tr></thead>
+                <tbody id="po"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- โดเนท -->
+        <section class="adm-panel" data-apanel="donations" hidden>
+          <div class="card">
+            <div class="adm-card-head">
+              <div><h2>โดเนท</h2><div class="muted" id="donSummary"></div></div>
+            </div>
+            <div class="adm-toolbar">
+              <label class="adm-search">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+                <input id="donQ" type="search" placeholder="ค้นหาผู้ส่ง / สตรีมเมอร์ / ข้อความ / วันที่" autocomplete="off">
+              </label>
+            </div>
+            <div class="tablewrap tall">
+              <table class="adm-table">
+                <thead><tr><th>เวลา</th><th>ผู้ส่ง</th><th>สตรีมเมอร์</th><th>จำนวน</th><th>ค่าธรรมเนียม</th><th>สติกเกอร์</th><th>ข้อความ</th></tr></thead>
+                <tbody id="don"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- เติมเงิน -->
+        <section class="adm-panel" data-apanel="topups" hidden>
+          <div class="card">
+            <div class="adm-card-head">
+              <div><h2>เติมเงิน</h2><div class="muted" id="tpSummary"></div></div>
+            </div>
+            <div class="adm-toolbar">
+              <label class="adm-search">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+                <input id="tpQ" type="search" placeholder="ค้นหาผู้ใช้ / รหัสอ้างอิง / วันที่" autocomplete="off">
+              </label>
+              <div class="adm-chips" id="tpFilter">
+                <button type="button" data-f="all" class="active">ทั้งหมด</button>
+                <button type="button" data-f="paid">สำเร็จ</button>
+                <button type="button" data-f="pending">รอชำระ</button>
+              </div>
+            </div>
+            <div class="tablewrap tall">
+              <table class="adm-table">
+                <thead><tr><th>เวลา</th><th>ผู้ใช้</th><th>จำนวน</th><th>วิธีชำระ</th><th>รหัสอ้างอิง</th><th>สถานะ</th></tr></thead>
+                <tbody id="tp"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- สติกเกอร์ -->
+        <section class="adm-panel" data-apanel="stickers" hidden>
+          <div class="card">
+            <div class="adm-card-head"><div><h2>เพิ่มสติกเกอร์ใหม่</h2><div class="muted">ผู้ชมส่งสติกเกอร์ได้จากหน้าโดเนท — แอนิเมชันแสดงบน Overlay</div></div></div>
+            <div class="adm-form-row">
+              <div><label>โค้ด (a-z, 0-9, _)</label><input id="ns_code" placeholder="เช่น heart"></div>
+              <div><label>ชื่อ</label><input id="ns_name" placeholder="เช่น หัวใจ"></div>
+              <div><label>อีโมจิ</label><input id="ns_emoji" placeholder="❤️"></div>
+              <div><label>ราคา (Token)</label><input id="ns_cost" type="number" min="0" placeholder="10"></div>
+              <div><label>แอนิเมชัน</label><select id="ns_anim"></select></div>
+              <div class="adm-form-btn"><button type="button" id="addSticker">+ เพิ่มสติกเกอร์</button></div>
+            </div>
+          </div>
+          <div class="adm-stickers" id="stickers"></div>
+        </section>
+
+        <!-- ตั้งค่าระบบ -->
+        <section class="adm-panel" data-apanel="settings" hidden>
+          <div class="card">
+            <h2>ทั่วไป</h2>
+            <label>ชื่อเว็บไซต์</label>
+            <input id="c_site" placeholder="Donate Stream">
+          </div>
+          <div class="card">
+            <h2>ค่าธรรมเนียม & การโดเนท</h2>
+            <div class="form-grid c3">
+              <div><label>ค่าธรรมเนียมแพลตฟอร์ม (%)</label><input id="c_fee" type="number" min="0" max="100" step="0.5"></div>
+              <div><label>โดเนทขั้นต่ำเริ่มต้น (บาท)</label><input id="c_min" type="number" min="1"></div>
+              <div><label>โดเนทสูงสุดเริ่มต้น (บาท)</label><input id="c_max" type="number" min="1"></div>
+            </div>
+            <div class="hint">💡 ค่าธรรมเนียมหักจากยอดโดเนทก่อนเข้ารายได้สตรีมเมอร์ · ขั้นต่ำ/สูงสุดใช้กับสตรีมเมอร์ที่ยังไม่ได้ตั้งค่าเอง</div>
+          </div>
+          <div class="card">
+            <h2>แพ็กเกจเติมเงิน</h2>
+            <p class="muted">จำนวนเงิน (บาท) ที่แสดงเป็นการ์ดในหน้าเติมเงิน — 1 บาท = 1 Token</p>
+            <div class="adm-pkgs" id="pkgList"></div>
+            <div class="row" style="margin-top:12px">
+              <input id="pkgNew" type="number" min="1" placeholder="เพิ่มแพ็กเกจ เช่น 200" style="max-width:220px">
+              <button type="button" class="sm" id="pkgAdd">+ เพิ่ม</button>
+            </div>
+          </div>
+          <div class="adm-save-bar"><button type="button" id="saveCfg">💾 บันทึกการตั้งค่า</button></div>
+        </section>
       </div>
     </div>
   </div>
 
+  <!-- จัดการผู้ใช้ -->
+  <div class="modal-overlay" id="userModal" hidden>
+    <div class="modal-box adm-user-box" role="dialog" aria-modal="true" aria-labelledby="umName">
+      <button type="button" class="modal-close" id="umClose" aria-label="ปิด">×</button>
+      <div class="adm-user-top">
+        <div id="umAvatar"></div>
+        <div>
+          <h2 id="umName"></h2>
+          <div class="muted" id="umSub"></div>
+        </div>
+      </div>
+      <div class="adm-user-stats">
+        <div><span>Token</span><b id="umToken"></b><button type="button" class="sm ghost" data-adj="token_balance">± ปรับ</button></div>
+        <div><span>รายได้ (บาท)</span><b id="umEarn"></b><button type="button" class="sm ghost" data-adj="earnings_balance">± ปรับ</button></div>
+      </div>
+      <label>บทบาท</label>
+      <div class="adm-chips adm-role" id="umRole">
+        <button type="button" data-r="donor">ผู้โดเนท</button>
+        <button type="button" data-r="streamer">สตรีมเมอร์</button>
+        <button type="button" data-r="admin">แอดมิน</button>
+      </div>
+      <div class="adm-user-actions">
+        <button type="button" class="ghost" id="umPw">🔑 รีเซ็ตรหัสผ่าน</button>
+        <button type="button" class="ghost" id="umBan"></button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script src="/js/admin.js"></script>
 </body>
 </html>

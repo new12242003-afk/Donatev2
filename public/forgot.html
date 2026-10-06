@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>สมัครสมาชิก · Donate Stream</title>
+  <title>ลืมรหัสผ่าน · Donate Stream</title>
   <link rel="stylesheet" href="/css/app.css">
 </head>
 <body>
@@ -13,8 +13,8 @@
     <aside class="auth-side">
       <div class="auth-side-inner">
         <span class="auth-logo">◆</span>
-        <h2>เริ่มรับโดเนทได้ในไม่กี่นาที 🚀</h2>
-        <p>สมัครฟรี ใช้ได้ทุกฟีเจอร์ 21 วัน ไม่ต้องผูกบัตร</p>
+        <h2>ลืมรหัสผ่าน? ไม่เป็นไร 🔑</h2>
+        <p>รับรหัสยืนยันทางอีเมล แล้วตั้งรหัสผ่านใหม่ได้ทันที</p>
         <ul>
           <li>🖥️ แจ้งเตือนบน OBS แบบเรียลไทม์</li>
           <li>🔊 AI อ่านข้อความโดเนทภาษาไทย</li>
@@ -25,26 +25,26 @@
     </aside>
     <div class="auth-main">
     <div class="card">
-      <h2>สมัครสมาชิก</h2>
-      <label>ชื่อผู้ใช้ (username)</label>
-      <input id="username" autocomplete="username" placeholder="a-z, 0-9, _ (3-20 ตัว)">
+      <h2>ลืมรหัสผ่าน</h2>
+      <p class="muted">กรอกอีเมลของบัญชี เราจะส่งรหัสยืนยัน 6 หลักไปให้ แล้วตั้งรหัสผ่านใหม่ได้เลย</p>
+
       <label>อีเมล</label>
       <div class="otp-row">
         <input id="email" type="email" autocomplete="email" placeholder="you@gmail.com">
         <button type="button" class="ghost" id="sendCode">ส่งรหัสยืนยัน</button>
       </div>
       <div class="muted otp-hint" id="codeHint" hidden></div>
+
       <label>รหัสยืนยัน 6 หลัก</label>
       <input id="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="กด &quot;ส่งรหัสยืนยัน&quot; แล้วใส่รหัสจากอีเมล" class="otp-input">
-      <label>รหัสผ่าน (อย่างน้อย 6 ตัว)</label>
+
+      <label>รหัสผ่านใหม่ (อย่างน้อย 6 ตัว)</label>
       <input id="password" type="password" autocomplete="new-password">
-      <label>ประเภทบัญชี</label>
-      <select id="role">
-        <option value="donor">ผู้โดเนท — เติมเงินและโดเนทให้สตรีมเมอร์</option>
-        <option value="streamer">สตรีมเมอร์ — รับโดเนท + ใช้ Overlay ใน OBS</option>
-      </select>
-      <div style="margin-top:16px"><button id="go">สมัครสมาชิก</button></div>
-      <p class="muted" style="margin-top:10px">มีบัญชีแล้ว? <a href="/login.html">เข้าสู่ระบบ</a></p>
+      <label>ยืนยันรหัสผ่านใหม่</label>
+      <input id="password2" type="password" autocomplete="new-password">
+
+      <div style="margin-top:16px"><button id="go">ตั้งรหัสผ่านใหม่</button></div>
+      <p class="muted" style="margin-top:10px">นึกออกแล้ว? <a href="/login.html">กลับไปเข้าสู่ระบบ</a></p>
     </div>
     </div>
   </div>
@@ -75,7 +75,7 @@
       sendBtn.disabled = true;
       sendBtn.textContent = 'กำลังส่ง…';
       try {
-        const r = await api('/auth/register/send-code', { method: 'POST', body: { email } });
+        const r = await api('/auth/forgot/send-code', { method: 'POST', body: { email } });
         hint.hidden = false;
         hint.innerHTML = r.mailSent
           ? '✅ ส่งรหัสไปที่ <b>' + esc(email) + '</b> แล้ว — ตรวจสอบกล่องจดหมาย (รวมถึง Spam) รหัสหมดอายุใน 10 นาที'
@@ -93,14 +93,17 @@
     $('code').addEventListener('input', (e) => { e.target.value = e.target.value.replace(/\D/g, '').slice(0, 6); });
 
     $('go').onclick = async () => {
-      const body = ['username', 'email', 'password', 'role', 'code']
-        .reduce((a, k) => (a[k] = $(k).value, a), {});
-      if (!/^\d{6}$/.test(body.code)) { toast('กรุณาใส่รหัสยืนยัน 6 หลักจากอีเมล', false); $('code').focus(); return; }
+      const email = $('email').value.trim();
+      const code = $('code').value;
+      const password = $('password').value;
+      if (!/^\d{6}$/.test(code)) { toast('กรุณาใส่รหัสยืนยัน 6 หลักจากอีเมล', false); $('code').focus(); return; }
+      if (password.length < 6) { toast('รหัสผ่านใหม่อย่างน้อย 6 ตัวอักษร', false); $('password').focus(); return; }
+      if (password !== $('password2').value) { toast('รหัสผ่านใหม่และการยืนยันไม่ตรงกัน', false); $('password2').focus(); return; }
       $('go').disabled = true;
       try {
-        await api('/auth/register', { method: 'POST', body });
-        toast('สมัครสมาชิกสำเร็จ');
-        setTimeout(() => { location.href = '/dashboard.html'; }, 700);
+        const r = await api('/auth/forgot/reset', { method: 'POST', body: { email, code, password } });
+        toast('ตั้งรหัสผ่านใหม่เรียบร้อย');
+        setTimeout(() => { location.href = '/login.html?reset=ok&u=' + encodeURIComponent(r.username); }, 700);
       } catch (e) {
         toast(e.message, false);
         $('go').disabled = false;

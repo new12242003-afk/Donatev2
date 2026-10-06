@@ -7,33 +7,139 @@
   <link rel="stylesheet" href="/css/app.css">
 </head>
 <body>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   <script src="/js/common.js"></script>
-  <div class="container" style="max-width:560px">
 
-    <div class="card">
-      <div class="muted">ยอด Token คงเหลือ (1 Token = 1 บาท)</div>
-      <div class="balance" id="bal">0</div>
-      <div id="verifyWarn" class="muted" style="display:none;margin-top:10px;color:#f87171">
+  <!-- รูปเพชร 1 เม็ด — ใช้ซ้ำด้วย <use> ทั้งในการ์ดแพ็กเกจและบรรทัด "× จำนวน" -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <linearGradient id="gemFace" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#bff3ff"/><stop offset=".45" stop-color="#3fb6ff"/><stop offset="1" stop-color="#1557d6"/>
+      </linearGradient>
+      <linearGradient id="gemSide" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#2a8cf0"/><stop offset="1" stop-color="#0d3c9e"/>
+      </linearGradient>
+    </defs>
+    <symbol id="gem" viewBox="0 0 40 40">
+      <polygon points="20,2 36,13 30,36 10,36 4,13" fill="url(#gemSide)"/>
+      <polygon points="20,6 31,14 26,32 14,32 9,14" fill="url(#gemFace)"/>
+      <polygon points="20,6 31,14 20,17 9,14" fill="#e6fbff" opacity=".75"/>
+      <polygon points="14,32 20,17 26,32" fill="#ffffff" opacity=".18"/>
+    </symbol>
+  </svg>
+
+  <div class="container tp-wrap">
+
+    <div class="card tp-balance">
+      <div>
+        <div class="muted">ยอด Token คงเหลือ (1 Token = 1 บาท)</div>
+        <div class="balance" id="bal">0</div>
+      </div>
+      <div id="verifyWarn" class="muted" style="display:none;color:#f87171">
         ⚠️ ยังไม่ได้ยืนยันอีเมล — เติมเงินไม่ได้จนกว่าจะยืนยัน
       </div>
     </div>
 
-    <div class="card">
-      <h2>เติมเงินเข้าเว็บไซต์</h2>
-      <div class="row" id="pkgs"></div>
-      <label>หรือระบุจำนวนเอง (บาท)</label>
-      <div class="row row-form">
-        <input id="topupAmt" type="number" min="20" placeholder="20" style="max-width:150px">
-        <select id="topupMethod" style="max-width:190px">
-          <option value="mock">ชำระทันที (จำลอง)</option>
-          <option value="promptpay">PromptPay QR (จำลอง)</option>
-        </select>
-        <button id="topupGo">เติมเงิน</button>
-      </div>
-      <div id="topupOut" class="muted" style="margin-top:8px"></div>
-    </div>
-
+    <h2 class="tp-heading">เลือกแพ็กเกจเติม Token</h2>
+    <div class="tp-grid" id="pkgs"></div>
   </div>
+
+  <!-- หน้าชำระเงิน -->
+  <div class="modal-overlay" id="payModal" hidden>
+    <div class="tp-pay" role="dialog" aria-modal="true" aria-labelledby="payTitle">
+      <div class="tp-pay-left">
+        <h2 id="payTitle">ชำระเงิน</h2>
+        <div class="muted tp-pay-sub">โปรดเลือกวิธีชำระเงิน</div>
+        <div class="tp-methods" id="payMethods">
+          <button type="button" class="tp-method" data-method="card" disabled>
+            <span class="tp-m-card"><span class="tp-m-cardicon"></span>Credit/Debit Card</span><span class="tp-soon">เร็ว ๆ นี้</span>
+          </button>
+          <button type="button" class="tp-method" data-method="truemoney" disabled>
+            <span class="tp-m-truemoney">true<b>money</b></span><span class="tp-soon">เร็ว ๆ นี้</span>
+          </button>
+          <button type="button" class="tp-method" data-method="paypal" disabled>
+            <span class="tp-m-paypal"><b>Pay</b><i>Pal</i></span><span class="tp-soon">เร็ว ๆ นี้</span>
+          </button>
+          <button type="button" class="tp-method" data-method="promptpay">
+            <span class="tp-m-promptpay">Prompt<b>Pay</b></span>
+          </button>
+          <button type="button" class="tp-method" data-method="mock">
+            <span class="tp-m-mock">⚡ ชำระทันที (จำลอง)</span>
+          </button>
+        </div>
+        <hr class="tp-sep">
+        <div id="payDetail" class="tp-detail"></div>
+      </div>
+
+      <div class="tp-pay-right">
+        <button class="modal-close" id="payClose" aria-label="ปิด">✕</button>
+        <div class="tp-sum-title" id="sumTitle"></div>
+        <div class="tp-sum">
+          <div class="tp-sum-row muted"><span>ราคา</span><span id="sumPrice"></span></div>
+          <div class="tp-sum-row tp-sum-total"><span>รวมทั้งหมด</span><span id="sumTotal"></span></div>
+        </div>
+        <div class="sp"></div>
+        <button class="tp-paybtn" id="payGo">ทำการชำระเงิน</button>
+        <div class="tp-terms muted">ฉันได้อ่านและยอมรับ <a href="#" onclick="return false">ข้อตกลงความเป็นส่วนตัว</a></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- หน้าชำระเงิน PromptPay: ซ้าย = สรุปรายการ, ขวา = QR + วิธีสแกน (หน้าเว็บเช็คสถานะเองจนจ่ายสำเร็จ) -->
+  <div class="modal-overlay pp-overlay" id="ppModal" hidden>
+    <div class="pp-page" role="dialog" aria-modal="true" aria-label="ชำระเงินด้วย PromptPay">
+      <div class="pp-left">
+        <div class="pp-merchant">
+          <button type="button" class="pp-back" id="ppBack" title="กลับ" aria-label="กลับ">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+          </button>
+          <span class="pp-merchant-ic">◆</span>
+          <span>Donate Stream</span>
+        </div>
+        <div class="pp-label">ยอดใช้จ่ายทั้งหมด</div>
+        <div class="pp-total" id="ppTotalLeft"></div>
+        <div class="pp-item" id="ppItem"></div>
+        <div class="pp-ref">รหัสอ้างอิง <b id="ppRef"></b></div>
+      </div>
+
+      <div class="pp-right">
+        <div class="pp-brand"><span class="pp-logo"><span class="tp-m-promptpay">Prompt<b>Pay</b></span></span><span>PromptPay</span></div>
+        <div class="pp-expire" id="ppExpire"></div>
+
+        <div class="pp-card">
+          <div class="pp-card-head"><span>ยอดใช้จ่ายทั้งหมด</span><b id="ppTotalRight"></b></div>
+          <div class="pp-card-body">
+            <div class="pp-qr-label">รหัส QR</div>
+            <div class="pp-qr" id="ppQr"></div>
+            <div class="pp-qr-state" id="ppState"><span class="pp-pulse"></span>รอการชำระเงิน…</div>
+          </div>
+        </div>
+
+        <div class="pp-howto-title">สแกนรหัส QR เพื่อทำการชำระเงิน</div>
+        <ol class="pp-howto">
+          <li>เปิดแอปการชำระเงินผ่านมือถือหรือแอปธนาคารของคุณ</li>
+          <li>สแกนรหัส QR ด้วยฟังก์ชันสแกนในแอปของคุณ</li>
+          <li>ดำเนินการชำระเงินให้เสร็จสิ้น</li>
+        </ol>
+        <div class="pp-dev">โหมดจำลอง — สแกนด้วยมือถือที่อยู่วง Wi-Fi เดียวกับเซิร์ฟเวอร์ หรือ <a href="#" id="ppDevLink" target="_blank">เปิดหน้าจ่ายเงินจำลอง</a> บนเครื่องนี้</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ชำระเงินสำเร็จ -->
+  <div class="modal-overlay" id="paidModal" hidden>
+    <div class="paid-box" role="dialog" aria-modal="true" aria-labelledby="paidTitle">
+      <button type="button" class="paid-x" id="paidX" aria-label="ปิด">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
+      </button>
+      <div class="paid-check"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5L20 7"/></svg></span></div>
+      <h3 id="paidTitle">ชำระเงินสำเร็จแล้ว</h3>
+      <p id="paidText"></p>
+      <button type="button" class="paid-ok" id="paidOk">ตกลง</button>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="/js/topup.js"></script>
 </body>
 </html>

@@ -1,4 +1,5 @@
 const { db } = require('./db');
+const { parseSocialLinks } = require('./social');
 
 function currentUser(req) {
   if (!req.session || !req.session.userId) return null;
@@ -42,6 +43,7 @@ function publicUser(u) {
     email_verified: !!u.email_verified,
     banned: !!u.banned,
     avatar_url: u.avatar_url || null,
+    cover_url: u.cover_url || null,
     first_name: u.first_name || '',
     last_name: u.last_name || '',
     nickname: u.nickname || '',
@@ -52,6 +54,10 @@ function publicUser(u) {
     address_district: u.address_district || '',
     address_province: u.address_province || '',
     address_zipcode: u.address_zipcode || '',
+    bio: u.bio || '',
+    creator_category: u.creator_category || '',
+    social_links: parseSocialLinks(u.social_links),
+    plan: require('./plans').planStatus(u),
   };
 }
 

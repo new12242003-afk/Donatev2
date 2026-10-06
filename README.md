@@ -15,14 +15,14 @@ npm start
 
 เปิด http://localhost:3000
 
-> ต้องใช้ Node.js เวอร์ชัน 22.5 ขึ้นไป (ใช้โมดูลในตัว `node:sqlite`)
+> ต้องใช้ Node.js เวอร์ชัน 22.13 ขึ้นไป (ใช้โมดูลในตัว `node:sqlite`)
 > dependencies ทั้งหมดเป็น pure JavaScript ไม่ต้องมี Python / Visual Studio Build Tools
 
 ## บัญชีเริ่มต้น
 
 | บทบาท | username | password |
 |-------|----------|----------|
-| แอดมิน | `admin` | `admin123` |
+| แอดมิน | `admin` | `admin123` (บนเครื่องตัวเอง) — บนเว็บจริงใช้ `ADMIN_PASSWORD` หรือดูรหัสที่สุ่มให้ใน log ครั้งแรก |
 
 ## 3 บทบาทผู้ใช้งาน
 
@@ -82,3 +82,29 @@ data.db                ฐานข้อมูล SQLite (สร้างอั
 - session เก็บอยู่ในตาราง `sessions` ของ `data.db` แล้ว (ผ่าน `src/sessionStore.js`) ไม่ใช่ memory เหมือนก่อน — รอดจาก restart/deploy ได้โดยไม่ต้องเพิ่ม native dependency
 - ต่อ payment gateway จริงแทนโหมดจำลอง — จุดเชื่อมคือ `creditTopup()` ใน `src/routes/topup.routes.js` ซึ่งตอนนี้เรียกผ่าน `src/ledger.js` (จุดกลางที่รวมตรรกะเพิ่ม/หักยอดเงินทั้งหมดของเว็บไว้ที่เดียว)
 - พิจารณา rate-limit เพิ่มเติมและ CAPTCHA ที่หน้า register
+
+## Deploy ขึ้น Railway
+
+1. Push โปรเจกต์ขึ้น GitHub แล้วที่ [railway.com](https://railway.com) กด **New Project → Deploy from GitHub repo** เลือก repo นี้
+   (Railway อ่าน `package.json` แล้วรัน `npm start` ให้เอง)
+2. **เพิ่ม Volume** (สำคัญมาก) — คลิกขวาที่ service → **Attach Volume** ตั้ง Mount path เป็น `/data`
+   ไม่มี Volume = ฐานข้อมูลและรูปที่อัปโหลดหายทุกครั้งที่ deploy ใหม่
+3. ตั้งค่า **Variables** ของ service:
+
+   | ตัวแปร | ค่า |
+   |--------|-----|
+   | `NODE_ENV` | `production` |
+   | `DATA_DIR` | `/data` (ตรงกับ Mount path ของ Volume) |
+   | `SESSION_SECRET` | สตริงสุ่มยาว ๆ (เช่นผลจาก `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`) |
+   | `BASE_URL` | URL ของเว็บ เช่น `https://xxx.up.railway.app` (ไม่มี / ท้าย) |
+   | `ADMIN_PASSWORD` | รหัสผ่านแอดมินตอนสร้างครั้งแรก |
+   | `GMAIL_USER`, `GMAIL_APP_PASSWORD`, `MAIL_FROM` | จำเป็นสำหรับสมัครสมาชิก/ลืมรหัสผ่าน (ส่งรหัสยืนยันทางอีเมล) |
+   | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | ไม่บังคับ — เข้าสู่ระบบด้วย Google (redirect URI = `BASE_URL/auth/google/callback`) |
+   | `GOOGLE_TTS_API_KEY` | ไม่บังคับ — AI เสียงอ่านข้อความโดเนท |
+
+   ไม่ต้องตั้ง `PORT` — Railway กำหนดให้เอง
+4. **Settings → Networking → Generate Domain** เพื่อได้ URL สาธารณะ แล้วนำไปใส่ `BASE_URL`
+5. (แนะนำ) **Settings → Deploy → Healthcheck Path** = `/healthz`
+
+> โหมด production จะ **ปิดการเติมเงินจำลอง** (ยังไม่มี payment gateway จริง) — แอดมินปรับยอด Token ให้ผู้ใช้ได้จากหน้าแอดมิน
+> ถ้าต้องการเปิดเพื่อทดลองระบบ ตั้ง `ALLOW_MOCK_PAYMENTS=true` (อย่าเปิดถ้ามีการถอนเงินจริง)

@@ -6,22 +6,68 @@ const { db } = require('../db');
 const { requireAuth, publicUser } = require('../auth');
 const { token, now, clean } = require('../util');
 const { sendVerifyEmail } = require('../mailer');
+const { sanitizeSocialLinks } = require('../social');
+const plans = require('../plans');
+const notify = require('../notify');
 
 const router = express.Router();
 router.use(requireAuth);
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:' + (process.env.PORT || 3000);
 const VERIFY_TTL = 24 * 3600 * 1000;
-const AVATAR_DIR = path.join(__dirname, '..', '..', 'public', 'uploads', 'avatars');
-fs.mkdirSync(AVATAR_DIR, { recursive: true });
+const { uploadDir, removeUpload, SHOW_DEV_CODES } = require('../config');
+const AVATAR_DIR = uploadDir('avatars');
+const COVER_DIR = uploadDir('covers');
 
 router.get('/', (req, res) => res.json(publicUser(req.user)));
+
+// การแจ้งเตือน (กระดิ่งบนแถบเมนู)
+router.get('/notifications', (req, res) => res.json(notify.list(req.user)));
+router.delete('/notifications', (req, res) => {
+  notify.clearAll(req.user.id);
+  res.json({ ok: true });
+});
+router.post('/notifications/read', (req, res) => {
+  notify.markRead(req.user.id, req.body.id ? Number(req.body.id) : null);
+  res.json({ ok: true });
+});
+
+// รายละเอียดแพลน + ประวัติการสมัครแพลน (แดชบอร์ด)
+router.get('/plan', (req, res) => res.json(plans.planDetails(req.user)));
+
+// ซื้อ/ต่ออายุแพลนด้วย Token
+router.post('/plan', (req, res) => {
+  try {
+    const r = plans.purchase(req.user.id, String(req.body.plan || ''));
+    res.json({ ok: true, balance: r.balance, plan: r.status });
+  } catch (e) {
+    if (e.code === 'BAD_PLAN') return res.status(400).json({ error: e.message });
+    if (e.code === 'INSUFFICIENT_BALANCE') return res.status(400).json({ error: 'ยอด Token ไม่พอ กรุณาเติมเงินก่อน' });
+    console.error(e);
+    res.status(500).json({ error: 'ซื้อแพลนไม่สำเร็จ' });
+  }
+});
 
 router.patch('/', (req, res) => {
   // username เป็นข้อมูลถาวรของบัญชี แก้ไขไม่ได้แม้จะส่งมาใน body
   const b = req.body || {};
+
+  // ตรวจลิงก์โซเชียลก่อนบันทึกอะไรทั้งหมด — ลิงก์ผิดจะไม่บันทึกฟิลด์อื่นค้างไว้ครึ่งทาง
+  let social = null;
+  if (b.social_links !== undefined) {
+    social = sanitizeSocialLinks(b.social_links);
+    if (social.error) return res.status(400).json({ error: social.error });
+  }
+
   const dn = clean(b.display_name || '', 40);
   if (dn) db.prepare('UPDATE users SET display_name = ? WHERE id = ?').run(dn, req.user.id);
+
+  // ข้อมูลโปรไฟล์สาธารณะ — bio และหมวดหมู่ครีเอเตอร์ แสดงในหน้าโดเนทสาธารณะ
+  if (b.bio !== undefined) db.prepare('UPDATE users SET bio = ? WHERE id = ?').run(clean(b.bio || '', 160), req.user.id);
+  if (b.creator_category !== undefined) {
+    db.prepare('UPDATE users SET creator_category = ? WHERE id = ?').run(clean(b.creator_category || '', 40), req.user.id);
+  }
+  if (social) db.prepare('UPDATE users SET social_links = ? WHERE id = ?').run(JSON.stringify(social.links), req.user.id);
 
   // ข้อมูลผู้ใช้งาน — ไม่บังคับกรอก เก็บเป็นค่าว่างได้ / ฟิลด์ที่ไม่ได้ส่งมาจะคงค่าเดิมไว้
   const pick = (key, max, digitsOnly) => {
@@ -42,7 +88,7 @@ router.patch('/', (req, res) => {
     pick('address_zipcode', 10, true),
     req.user.id);
 
-  res.json({ ok: true });
+  res.json({ ok: true, social_links: social ? social.links : undefined });
 });
 
 router.post('/email', async (req, res) => {
@@ -59,7 +105,7 @@ router.post('/email', async (req, res) => {
 
   const link = `${BASE_URL}/auth/verify?token=${vtoken}`;
   const r = await sendVerifyEmail(email, link).catch((e) => ({ sent: false, error: e.message }));
-  res.json({ ok: true, mailSent: !!r.sent, devLink: r.sent ? undefined : link });
+  res.json({ ok: true, mailSent: !!r.sent, devLink: r.sent || !SHOW_DEV_CODES ? undefined : link });
 });
 
 router.post('/avatar', (req, res) => {
@@ -78,9 +124,37 @@ router.post('/avatar', (req, res) => {
 
   const old = req.user.avatar_url;
   if (old && old.startsWith('/uploads/avatars/')) {
-    fs.unlink(path.join(__dirname, '..', '..', 'public', old.replace(/^\//, '')), () => {});
+    removeUpload(old);
   }
   res.json({ ok: true, avatar_url: url });
+});
+
+// รูปพื้นหลัง (ปก) ของการ์ดในหน้าสตรีมเมอร์ — หน้าเว็บย่อรูปก่อนส่ง (กว้างไม่เกิน 1200px)
+function removeCoverFile(url) {
+  if (url && url.startsWith('/uploads/covers/')) {
+    removeUpload(url);
+  }
+}
+
+router.post('/cover', (req, res) => {
+  const m = /^data:image\/(png|jpe?g|webp);base64,([a-zA-Z0-9+/=]+)$/.exec(String(req.body.image || ''));
+  if (!m) return res.status(400).json({ error: 'รูปภาพไม่ถูกต้อง (รองรับ PNG, JPG, WEBP)' });
+  const buf = Buffer.from(m[2], 'base64');
+  if (buf.length > 5 * 1024 * 1024) return res.status(400).json({ error: 'ไฟล์ใหญ่เกินไป (สูงสุด 5MB)' });
+
+  const ext = m[1] === 'jpeg' ? 'jpg' : m[1];
+  const filename = `c${req.user.id}-${Date.now()}.${ext}`;
+  fs.writeFileSync(path.join(COVER_DIR, filename), buf);
+  const url = '/uploads/covers/' + filename;
+  db.prepare('UPDATE users SET cover_url = ? WHERE id = ?').run(url, req.user.id);
+  removeCoverFile(req.user.cover_url);
+  res.json({ ok: true, cover_url: url });
+});
+
+router.delete('/cover', (req, res) => {
+  db.prepare('UPDATE users SET cover_url = NULL WHERE id = ?').run(req.user.id);
+  removeCoverFile(req.user.cover_url);
+  res.json({ ok: true });
 });
 
 router.post('/password', (req, res) => {
@@ -99,6 +173,7 @@ router.post('/become-streamer', (req, res) => {
   const key = req.user.overlay_key || token(20);
   db.prepare("UPDATE users SET role = 'streamer', overlay_key = ? WHERE id = ?").run(key, req.user.id);
   db.prepare('INSERT OR IGNORE INTO streamer_settings (user_id, updated_at) VALUES (?, ?)').run(req.user.id, now());
+  if (req.user.role === 'donor') plans.startTrialOnUpgrade(req.user);
   res.json({ ok: true });
 });
 

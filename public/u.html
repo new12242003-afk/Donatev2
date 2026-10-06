@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>โดเนท · Donate Stream</title>
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body class="dn-page">
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="/js/common.js"></script>
+
+  <main class="dn-wrap">
+    <div id="dnNotFound" class="dn-notfound" hidden>
+      <h2>ไม่พบสตรีมเมอร์นี้</h2>
+      <p>ลิงก์อาจไม่ถูกต้อง หรือบัญชีนี้ไม่ได้เปิดรับโดเนท</p>
+      <a class="btn" href="/">กลับหน้าแรก</a>
+    </div>
+
+    <div id="dnMain" hidden>
+      <header class="dn-head">
+        <div id="dnAvatar"></div>
+        <h1 class="dn-name"><span id="dnName"></span><span class="dn-badge" id="dnBadge" hidden title="ยืนยันตัวตนแล้ว">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="#1d9bf0"/><path d="M7 12.5l3.2 3.2L17 9" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </span></h1>
+        <div class="dn-bio" id="dnBio"></div>
+        <div id="dnSocial"></div>
+      </header>
+
+      <div class="dn-selfnote" id="dnSelfNote" hidden>
+        👀 นี่คือหน้าโดเนทของคุณ — ผู้ชมจะเห็นหน้านี้เมื่อเปิดลิงก์ (คุณโดเนทให้ตัวเองไม่ได้)
+      </div>
+
+      <div class="dn-closed" id="dnClosed" hidden>⏸️ สตรีมเมอร์รายนี้ปิดรับโดเนทชั่วคราว</div>
+
+      <form class="dn-form" id="dnForm" novalidate>
+        <section class="dn-sec">
+          <h3>จำนวนเงินที่จะมอบให้</h3>
+          <div class="dn-amount">
+            <select class="dn-cur" aria-label="สกุลเงิน"><option>THB</option></select>
+            <input id="dnAmount" type="number" inputmode="numeric" min="1" step="1" aria-label="จำนวนเงิน">
+          </div>
+          <div class="dn-help" id="dnAmountHelp"></div>
+          <div class="dn-err" id="dnAmountErr"></div>
+          <div class="dn-chips" id="dnChips"></div>
+        </section>
+
+        <section class="dn-sec" id="dnStickerSec" hidden>
+          <h3>หรือส่งสติกเกอร์</h3>
+          <div class="dn-help" style="margin:0 0 10px">ราคาคงที่ — กดเลือกสติกเกอร์ แล้วกดปุ่มส่งด้านล่าง (กดซ้ำเพื่อยกเลิก) · ส่งสติกเกอร์แนบข้อความไม่ได้</div>
+          <div class="dn-stickers" id="dnStickers"></div>
+        </section>
+
+        <section class="dn-sec">
+          <h3>เขียนข้อความของคุณ</h3>
+          <div class="dn-note" id="dnMsgNote" hidden>🔒 ส่งสติกเกอร์ไม่สามารถแนบข้อความได้ — ยกเลิกการเลือกสติกเกอร์เพื่อเขียนข้อความ</div>
+          <textarea id="dnMsg" rows="2" maxlength="200"></textarea>
+          <div class="dn-count"><span id="dnMsgCount">0</span> / 200</div>
+        </section>
+
+        <section class="dn-sec" id="dnVoiceSec" hidden>
+          <h3>ข้อความเสียง</h3>
+          <div class="dn-voice" id="dnVoiceBox">
+            <div class="dn-voice-row">
+              <button type="button" class="dn-mic" id="dnMic" aria-label="อัดเสียง">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+              </button>
+              <div>
+                <div class="dn-voice-title" id="dnVoiceTitle"></div>
+                <div class="dn-voice-status" id="dnVoiceStatus"></div>
+              </div>
+            </div>
+            <audio id="dnVoicePlayer" controls hidden></audio>
+            <button type="button" class="dn-linkbtn" id="dnVoiceClear" hidden>ลบคลิปที่อัดไว้</button>
+            <div class="dn-voice-note">ไฟล์เสียงจะถูกเล่นบนไลฟ์ตามจริง ไม่มีการเซ็นเซอร์เนื้อหา</div>
+          </div>
+        </section>
+
+        <section class="dn-sec" id="dnAudioSec" hidden>
+          <h3>แนบไฟล์เสียง/เพลง</h3>
+          <div class="dn-voice" id="dnAudioBox">
+            <div class="dn-voice-title" id="dnAudioTitle"></div>
+            <input id="dnAudioFile" type="file" accept="audio/mpeg,audio/mp3,audio/wav,audio/ogg">
+            <audio id="dnAudioPlayer" controls hidden></audio>
+            <div class="dn-err" id="dnAudioErr"></div>
+          </div>
+        </section>
+
+        <section class="dn-sec">
+          <h3>ชื่อของคุณ</h3>
+          <input id="dnFrom" maxlength="40">
+          <label class="dn-check"><input type="checkbox" id="dnAnon"> ไม่ระบุชื่อ</label>
+          <div class="dn-err" id="dnFromErr"></div>
+        </section>
+
+        <section class="dn-sec">
+          <h3>บัญชีที่ใช้โดเนท</h3>
+          <div class="dn-account" id="dnAccount"></div>
+          <div id="dnHideEmailWrap" hidden>
+            <label class="dn-check"><input type="checkbox" id="dnHideEmail"> <span>ซ่อนอีเมลของฉันจาก <b id="dnHideEmailName"></b></span></label>
+            <div class="dn-help" style="margin:2px 0 0 24px">ถ้าไม่ติ๊ก สตรีมเมอร์จะเห็นอีเมลของคุณในรายชื่อผู้สนับสนุน</div>
+          </div>
+        </section>
+
+        <section class="dn-sec dn-consent">
+          <label class="dn-check"><input type="checkbox" id="dnAgree">
+            <span>ข้าพเจ้ายอมรับว่าการสนับสนุน <b id="dnAgreeName"></b> เป็นการให้โดยสมัครใจ ไม่ใช่การซื้อสินค้าหรือบริการ และไม่สามารถขอคืนเงินได้</span></label>
+          <label class="dn-check"><input type="checkbox" id="dnAge"> <span>ฉันมีอายุ 18 ปีขึ้นไป</span></label>
+          <div class="dn-err" id="dnConsentErr"></div>
+        </section>
+      </form>
+
+      <button type="button" class="dn-submit" id="dnSubmit">ส่งโดเนท →</button>
+    </div>
+  </main>
+
+  <script src="/js/u.js"></script>
+</body>
+</html>
