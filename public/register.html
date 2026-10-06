@@ -38,6 +38,9 @@
       <input id="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="กด &quot;ส่งรหัสยืนยัน&quot; แล้วใส่รหัสจากอีเมล" class="otp-input">
       <label>รหัสผ่าน (อย่างน้อย 6 ตัว)</label>
       <input id="password" type="password" autocomplete="new-password">
+      <label>ยืนยันรหัสผ่าน</label>
+      <input id="password2" type="password" autocomplete="new-password" placeholder="กรอกรหัสผ่านอีกครั้ง">
+      <div class="pw-match" id="pwMatch" hidden></div>
       <label>ประเภทบัญชี</label>
       <select id="role">
         <option value="donor">ผู้โดเนท — เติมเงินและโดเนทให้สตรีมเมอร์</option>
@@ -92,9 +95,21 @@
 
     $('code').addEventListener('input', (e) => { e.target.value = e.target.value.replace(/\D/g, '').slice(0, 6); });
 
+    // บอกทันทีระหว่างพิมพ์ว่ารหัสผ่านตรงกันไหม
+    const pwMatch = () => {
+      const a = $('password').value, b = $('password2').value, box = $('pwMatch');
+      box.hidden = !b;
+      box.className = 'pw-match ' + (a === b ? 'ok' : 'bad');
+      box.textContent = a === b ? '✓ รหัสผ่านตรงกัน' : '✕ รหัสผ่านไม่ตรงกัน';
+    };
+    $('password').addEventListener('input', pwMatch);
+    $('password2').addEventListener('input', pwMatch);
+
     $('go').onclick = async () => {
       const body = ['username', 'email', 'password', 'role', 'code']
         .reduce((a, k) => (a[k] = $(k).value, a), {});
+      if (body.password.length < 6) { toast('รหัสผ่านอย่างน้อย 6 ตัวอักษร', false); $('password').focus(); return; }
+      if (body.password !== $('password2').value) { toast('รหัสผ่านและการยืนยันรหัสผ่านไม่ตรงกัน', false); $('password2').focus(); return; }
       if (!/^\d{6}$/.test(body.code)) { toast('กรุณาใส่รหัสยืนยัน 6 หลักจากอีเมล', false); $('code').focus(); return; }
       $('go').disabled = true;
       try {

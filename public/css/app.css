@@ -1904,3 +1904,8 @@ body .swal2-popup.notif-toast .swal2-title { font-size: 15px; text-align: left; 
 body .swal2-popup.notif-toast .swal2-html-container { font-size: 13px; text-align: left; margin: 4px 0 0; }
 body .swal2-popup.notif-toast .swal2-actions { justify-content: flex-start; margin-top: 8px; }
 body .swal2-popup.notif-toast .swal2-confirm { padding: 6px 14px; font-size: 13px; border-radius: 999px; }
+
+/* สมัครสมาชิก: สถานะรหัสผ่านตรงกัน */
+.pw-match { margin-top: 6px; font-size: 13px; font-weight: 600; }
+.pw-match.ok { color: var(--ok); }
+.pw-match.bad { color: var(--err); }
