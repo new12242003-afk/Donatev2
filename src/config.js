@@ -35,9 +35,10 @@ function removeUpload(url) {
 
 module.exports = {
   IS_PROD, DATA_DIR, UPLOAD_DIR, PRIVATE_DIR, uploadDir, uploadPathFromUrl, removeUpload,
-  // เติมเงินแบบจำลอง (ชำระทันที / หน้าจ่าย PromptPay จำลอง) — ปิดบนเซิร์ฟเวอร์จริงเป็นค่าเริ่มต้น
-  // ไม่งั้นใครก็เติม Token ฟรีแล้วโดเนทต่อ/ถอนเป็นเงินจริงได้
-  ALLOW_MOCK_PAYMENTS: flag('ALLOW_MOCK_PAYMENTS', !IS_PROD),
-  // แสดงรหัสยืนยัน/ลิงก์ยืนยันบนหน้าเว็บตอนยังไม่ได้ตั้งค่าอีเมล — ใช้ทดสอบบนเครื่องเท่านั้น
-  SHOW_DEV_CODES: flag('SHOW_DEV_CODES', !IS_PROD),
+  // เติมเงินแบบจำลอง (ชำระทันที / หน้าจ่าย PromptPay จำลอง) — เปิดเป็นค่าเริ่มต้น (ยังไม่มี payment gateway จริง)
+  // ⚠️ ใครก็เติม Token ฟรีได้ — ถ้าเริ่มมีการโอนเงินถอนจริง ให้ตั้ง ALLOW_MOCK_PAYMENTS=false
+  ALLOW_MOCK_PAYMENTS: flag('ALLOW_MOCK_PAYMENTS', true),
+  // แสดงรหัสยืนยัน/ลิงก์ยืนยันบนหน้าเว็บเมื่อยังไม่ได้ตั้งค่าอีเมล (ยืนยันอีเมลแบบจำลอง)
+  // ตั้งค่า Gmail แล้วรหัสจะส่งทางอีเมลจริงอัตโนมัติ / ปิดได้ด้วย SHOW_DEV_CODES=false
+  SHOW_DEV_CODES: flag('SHOW_DEV_CODES', true),
 };
