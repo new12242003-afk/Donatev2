@@ -139,6 +139,28 @@ CREATE TABLE IF NOT EXISTS config (
   value TEXT
 );
 
+-- ติดต่อแอดมิน (src/routes/support.routes.js): 1 เรื่อง = หลายข้อความ
+CREATE TABLE IF NOT EXISTS support_tickets (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id),
+  subject TEXT NOT NULL,
+  category TEXT NOT NULL DEFAULT 'อื่น ๆ',
+  status TEXT NOT NULL DEFAULT 'open',
+  user_unread INTEGER NOT NULL DEFAULT 0,
+  admin_unread INTEGER NOT NULL DEFAULT 0,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS support_messages (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  ticket_id INTEGER NOT NULL REFERENCES support_tickets(id),
+  sender_id INTEGER NOT NULL REFERENCES users(id),
+  is_admin INTEGER NOT NULL DEFAULT 0,
+  body TEXT NOT NULL,
+  created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_support_msg_ticket ON support_messages(ticket_id);
+
 -- การแจ้งเตือนในเว็บ (src/notify.js) — dedupe_key กันแจ้งเรื่องเดิมซ้ำ
 CREATE TABLE IF NOT EXISTS notifications (
   id INTEGER PRIMARY KEY AUTOINCREMENT,

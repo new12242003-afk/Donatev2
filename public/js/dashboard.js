@@ -135,6 +135,7 @@ let ME, STICKERS = [];
   document.getElementById('sentExportPdf').onclick = (e) => { e.preventDefault(); exportSentPdf(); };
   if (ME.role === 'streamer' || ME.role === 'admin') initStreamer();
   initRealtime();
+  initSupport();
   initTabs();
 })();
 
@@ -156,6 +157,9 @@ function switchTab(tab) {
   const requested = tab;
   let sub = null;
   if (TAB_ALIAS[tab]) [tab, sub] = TAB_ALIAS[tab];
+  // #support/<id> = เปิดแชทเรื่องนั้น (support.js จัดการต่อเอง)
+  const supportLink = /^support\/\d+$/.test(tab || '');
+  if (supportLink) tab = 'support';
   const panels = [...document.querySelectorAll('.tab-panel')];
   if (!panels.some((p) => p.dataset.panel === tab)) {
     const items = [...document.querySelectorAll('.sidebar-item')];
@@ -175,7 +179,7 @@ function switchTab(tab) {
   }
 
   if (sub) selectEarningsSub(sub);
-  const hash = sub ? requested : tab;
+  const hash = sub || supportLink ? requested : tab;
   if (location.hash.slice(1) !== hash) history.replaceState(null, '', '#' + hash);
 }
 

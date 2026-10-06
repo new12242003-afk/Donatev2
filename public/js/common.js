@@ -199,6 +199,7 @@ const NAV_ICONS = {
   bank: '<path d="M3 10 12 4l9 6"/><path d="M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 20h18"/>',
   heart: '<path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.5-7 10-7 10z"/>',
   card: '<rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/>',
+  chat: '<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/><path d="M8.5 10.5h7M8.5 13.5h4"/>',
   sparkle: '<path d="M12 3l2 5 5 2-5 2-2 5-2-5-5-2 5-2z"/>',
   gear: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
   login: '<path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/>',
@@ -245,7 +246,7 @@ function planButton(plan) {
 }
 
 // ---------- กระดิ่งแจ้งเตือน: ดึงรายการทุก 30 วินาที + เปิดดูเป็น dropdown ----------
-const NOTIF_ICONS = { donation: '💸', plan: '⏰', payout: '🏦' };
+const NOTIF_ICONS = { donation: '💸', plan: '⏰', payout: '🏦', support: '💬' };
 function timeAgo(ts) {
   const s = Math.floor((Date.now() - ts) / 1000);
   if (s < 60) return 'เมื่อสักครู่';
@@ -259,6 +260,8 @@ function timeAgo(ts) {
 function listenNotifications(reload) {
   const start = () => {
     const socket = window.io({ transports: ['websocket', 'polling'] });
+    window.appSocket = socket;
+    (window.__socketWaiters || []).forEach((f) => f(socket));
     socket.on('notify:new', (n) => {
       reload();
       showNotifPopup(n);
@@ -271,7 +274,15 @@ function listenNotifications(reload) {
   document.head.append(s);
 }
 
+// ใช้ socket เดียวกับกระดิ่ง (หน้าอื่น ๆ เช่น ติดต่อแอดมิน รอรับ socket ผ่านฟังก์ชันนี้)
+function onAppSocket(cb) {
+  if (window.appSocket) cb(window.appSocket);
+  else (window.__socketWaiters = window.__socketWaiters || []).push(cb);
+}
+
 function showNotifPopup(n) {
+  // กำลังเปิดหน้าที่แจ้งเตือนชี้อยู่แล้ว (เช่น เปิดแชทเรื่องนั้นค้างไว้) — ไม่ต้องเด้ง
+  if (n.link && location.pathname + location.hash === n.link) return;
   playUiSound('success');
   const icon = NOTIF_ICONS[n.type] || '🔔';
   if (!window.Swal) return toast(icon + ' ' + n.title);
@@ -427,7 +438,7 @@ function mountNav(me) {
 const TAB_ICONS = {
   account: 'user', donate: 'receipt', plan: 'box', planhistory: 'history', settings: 'link', overlay: 'monitor',
   earnings: 'wallet', transactions: 'list', leaderboard: 'users', stats: 'chart',
-  overview: 'chart', users: 'users', payouts: 'bank', donations: 'heart', topups: 'card', stickers: 'sparkle', sys: 'gear',
+  overview: 'chart', users: 'users', payouts: 'bank', donations: 'heart', topups: 'card', stickers: 'sparkle', sys: 'gear', support: 'chat',
 };
 
 // เมนูด้านข้างของแดชบอร์ด/แอดมิน (จอคอม): เปลี่ยนอีโมจิเป็นไอคอนเส้นชุดเดียวกับเมนูมือถือ

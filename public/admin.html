@@ -30,6 +30,7 @@
         <button class="sidebar-item" data-atab="donations"><span class="ic">💸</span> โดเนท</button>
         <button class="sidebar-item" data-atab="topups"><span class="ic">💳</span> เติมเงิน</button>
         <button class="sidebar-item" data-atab="stickers"><span class="ic">✨</span> สติกเกอร์</button>
+        <button class="sidebar-item" data-atab="support"><span class="ic">💬</span> ข้อความจากผู้ใช้ <span class="adm-badge" data-support-badge hidden></span></button>
         <div class="sidebar-section">ระบบ</div>
         <button class="sidebar-item" data-atab="settings"><span class="ic">⚙️</span> ตั้งค่าระบบ</button>
       </nav>
@@ -179,6 +180,9 @@
           <div class="adm-stickers" id="stickers"></div>
         </section>
 
+        <!-- ข้อความจากผู้ใช้ (public/js/support.js) -->
+        <section class="adm-panel" data-apanel="support" hidden><div id="supportRoot"></div></section>
+
         <!-- ตั้งค่าระบบ -->
         <section class="adm-panel" data-apanel="settings" hidden>
           <div class="card">
@@ -240,6 +244,7 @@
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="/js/support.js"></script>
   <script src="/js/admin.js"></script>
 </body>
 </html>

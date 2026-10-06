@@ -55,6 +55,7 @@ app.use('/api/topup', require('./src/routes/topup.routes'));
 app.use('/api/donate', require('./src/routes/donate.routes'));
 app.use('/api/streamer', require('./src/routes/streamer.routes'));
 app.use('/api/admin', require('./src/routes/admin.routes'));
+app.use('/api/support', require('./src/routes/support.routes'));
 app.use('/api/public', require('./src/routes/public.routes'));
 app.use('/api', (req, res) => res.status(404).json({ error: 'not found' }));
 

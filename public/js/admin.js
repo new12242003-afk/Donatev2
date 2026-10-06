@@ -32,6 +32,7 @@ const dtShort = (ts) => new Date(ts).toLocaleString('th-TH', { day: 'numeric', m
   initLists();
   initStickers();
   initSettings();
+  initSupport({ admin: true });
   document.getElementById('admRefresh').onclick = () => { loadAll(); toast('รีเฟรชข้อมูลแล้ว'); };
   loadAll();
 })();
@@ -49,11 +50,16 @@ function initTabs() {
 }
 
 function switchAdmTab(tab) {
+  const requested = tab;
+  // #support/<id> = เปิดแชทเรื่องนั้น (support.js จัดการต่อเอง)
+  const supportLink = /^support\/\d+$/.test(tab || '');
+  if (supportLink) tab = 'support';
   const panels = [...document.querySelectorAll('.adm-panel')];
   if (!panels.some((p) => p.dataset.apanel === tab)) tab = 'overview';
   panels.forEach((p) => { p.hidden = p.dataset.apanel !== tab; });
   document.querySelectorAll('#admNav [data-atab]').forEach((b) => b.classList.toggle('active', b.dataset.atab === tab));
-  if (location.hash.slice(1) !== tab) history.replaceState(null, '', '#' + tab);
+  const hash = supportLink ? requested : tab;
+  if (location.hash.slice(1) !== hash) history.replaceState(null, '', '#' + hash);
 }
 
 function setChips(boxId, value) {

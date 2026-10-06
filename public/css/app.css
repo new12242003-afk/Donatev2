@@ -1909,3 +1909,71 @@ body .swal2-popup.notif-toast .swal2-confirm { padding: 6px 14px; font-size: 13p
 .pw-match { margin-top: 6px; font-size: 13px; font-weight: 600; }
 .pw-match.ok { color: var(--ok); }
 .pw-match.bad { color: var(--err); }
+
+/* =====================================================================
+   ติดต่อแอดมิน (support.js)
+   ===================================================================== */
+.sup { display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 18px; align-items: start; }
+.sup .card { margin-bottom: 0; }
+.sup-side { padding: 18px !important; display: flex; flex-direction: column; max-height: calc(100vh - 140px); position: sticky; top: 100px; }
+.sup-side-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+.sup-side-head h2 { margin: 0 !important; }
+.sup-filter { margin-bottom: 10px; }
+.sup-list { display: flex; flex-direction: column; gap: 6px; overflow-y: auto; margin: 0 -6px; padding: 0 6px; }
+.sup-item {
+  display: flex; flex-direction: column; gap: 3px; width: 100%; min-height: 0; padding: 12px; border-radius: 12px; text-align: left;
+  background: transparent; color: var(--text); border: 1px solid transparent; font-weight: 400; cursor: pointer;
+}
+.sup-item:hover { background: var(--card2); border-color: var(--line); }
+.sup-item.active { background: rgba(77, 107, 255, .12); border-color: rgba(77, 107, 255, .35); }
+.sup-item-top { display: flex; justify-content: space-between; gap: 8px; }
+.sup-item-top b { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sup-item.unread .sup-item-top b { font-weight: 800; }
+.sup-time { font-size: 11.5px; color: var(--muted); white-space: nowrap; }
+.sup-who { font-size: 12.5px; color: var(--brand); font-weight: 600; }
+.sup-last { font-size: 12.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sup-item-bot { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
+.sup-cat { font-size: 11.5px; padding: 2px 8px; border-radius: 999px; background: var(--card2); border: 1px solid var(--line); color: var(--muted); }
+.sup-item .pd-st { font-size: 11px; padding: 2px 8px; }
+.sup-dot { width: 9px; height: 9px; border-radius: 50%; background: #f97316; margin-left: auto; }
+
+.sup-main { min-height: 520px; padding: 0 !important; overflow: hidden; display: flex; flex-direction: column; }
+.sup-empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 50px 24px; }
+.sup-empty[hidden], .sup-new[hidden], .sup-thread[hidden] { display: none; }
+.sup-empty-ic { width: 72px; height: 72px; border-radius: 22px; display: flex; align-items: center; justify-content: center; font-size: 34px; background: rgba(77, 107, 255, .12); margin-bottom: 14px; }
+.sup-empty h3 { margin: 0 0 6px; font-size: 19px; color: var(--text); }
+.sup-empty p { max-width: 420px; margin: 0 0 18px; }
+.sup-new { padding: 24px; }
+.sup-new h2 { margin-top: 0; }
+
+.sup-thread { flex: 1; display: flex; flex-direction: column; min-height: 520px; max-height: calc(100vh - 140px); }
+.sup-thread-head { display: flex; align-items: center; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--line); }
+.sup-thread-title { flex: 1; min-width: 0; }
+.sup-thread-title b { display: block; font-size: 16.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sup-thread-title .muted { font-size: 12.5px; }
+.sup-thread-title .pd-st { font-size: 11px; padding: 1px 8px; }
+.sup-back { display: none; width: 36px; height: 36px; min-height: 0; padding: 0; border-radius: 50%; background: var(--card2); color: var(--text); border: 0; font-size: 18px; }
+.sup-msgs { flex: 1; overflow-y: auto; padding: 18px 20px; display: flex; flex-direction: column; gap: 12px; background: var(--card2); }
+.sup-msg { display: flex; flex-direction: column; max-width: 78%; }
+.sup-msg.me { align-self: flex-end; align-items: flex-end; }
+.sup-msg.them { align-self: flex-start; }
+.sup-bubble { padding: 10px 14px; border-radius: 16px; font-size: 14.5px; line-height: 1.6; word-break: break-word; background: var(--card); border: 1px solid var(--line); }
+.sup-msg.me .sup-bubble { background: var(--brand); color: #fff; border-color: transparent; border-bottom-right-radius: 4px; }
+.sup-msg.them .sup-bubble { border-bottom-left-radius: 4px; }
+.sup-msg.them.admin .sup-bubble { border-color: rgba(77, 107, 255, .45); }
+.sup-msg-meta { font-size: 11.5px; color: var(--muted); margin-top: 4px; }
+.sup-closed { text-align: center; font-size: 12.5px; color: var(--muted); padding: 6px 0; }
+.sup-reply { display: flex; gap: 10px; align-items: flex-end; padding: 14px 16px; border-top: 1px solid var(--line); background: var(--card); }
+.sup-reply textarea { flex: 1; min-height: 44px; max-height: 160px; resize: vertical; }
+.sup-reply button { min-height: 44px; padding: 0 22px; border-radius: 12px; }
+
+@media (max-width: 980px) {
+  .sup { grid-template-columns: 1fr; }
+  .sup-side { position: static; max-height: none; }
+  /* มือถือ/แท็บเล็ต: เปิดเรื่องแล้วซ่อนรายการ มีปุ่ม ← กลับ */
+  .sup.viewing .sup-side { display: none; }
+  .sup:not(.viewing) .sup-main { display: none; }
+  .sup-back { display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .sup-thread { max-height: none; min-height: calc(100vh - 160px); }
+  .sup-msg { max-width: 88%; }
+}

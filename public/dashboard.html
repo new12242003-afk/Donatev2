@@ -45,6 +45,7 @@
         <button class="sidebar-item" data-tab="donate"><span class="ic">🧾</span> ประวัติการโดเนท</button>
         <button class="sidebar-item" data-tab="plan" id="navPlan" style="display:none"><span class="ic">🎁</span> แพลน</button>
         <button class="sidebar-item" data-tab="planhistory" id="navPlanHistory" style="display:none"><span class="ic">🗂️</span> ประวัติการสมัครแพลน</button>
+        <button class="sidebar-item" data-tab="support"><span class="ic">💬</span> ติดต่อแอดมิน <span class="adm-badge" data-support-badge hidden></span></button>
 
         <div class="sidebar-section" id="navSectionEarn" style="display:none">การรับเงิน</div>
         <button class="sidebar-item" data-tab="settings" id="navSettings" style="display:none"><span class="ic">🔗</span> ลิงก์หน้าโดเนท</button>
@@ -88,6 +89,9 @@
             </div>
           </div>
         </section>
+
+        <!-- ติดต่อแอดมิน (public/js/support.js) -->
+        <section class="tab-panel" data-panel="support"><div id="supportRoot"></div></section>
 
         <!-- แพลน: สถานะ + เวลาคงเหลือ + วันเวลาหมดอายุ (สตรีมเมอร์/แอดมิน) -->
         <section class="tab-panel" data-panel="plan">
@@ -730,6 +734,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/support.js"></script>
   <script src="/js/dashboard.js"></script>
 </body>
 </html>
