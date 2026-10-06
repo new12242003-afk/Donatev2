@@ -6,6 +6,10 @@ const plans = require('./plans');
 // dedupe_key กันแจ้งซ้ำ เช่น "แพลนใกล้หมด" ของวันหมดอายุเดียวกันแจ้งครั้งเดียว
 const KEEP = 50;
 
+// socket.io (ตั้งจาก server.js) — แจ้งเตือนใหม่เด้งขึ้นจอผู้ใช้ทันทีทุกหน้า ไม่ต้องรอกระดิ่งดึงรอบถัดไป
+let io = null;
+function setIo(x) { io = x; }
+
 function add(userId, { type, title, body = '', link = '', dedupe = null }) {
   const r = db.prepare(`INSERT OR IGNORE INTO notifications (user_id, type, title, body, link, dedupe_key, created_at)
     VALUES (?, ?, ?, ?, ?, ?, ?)`).run(userId, type, title, body, link, dedupe, now());
@@ -13,6 +17,7 @@ function add(userId, { type, title, body = '', link = '', dedupe = null }) {
   if (r.changes) {
     db.prepare(`DELETE FROM notifications WHERE user_id = ? AND id NOT IN
       (SELECT id FROM notifications WHERE user_id = ? ORDER BY id DESC LIMIT ?)`).run(userId, userId, KEEP);
+    if (io) io.to('user:' + userId).emit('notify:new', { type, title, body, link });
   }
 }
 
@@ -64,10 +69,10 @@ function clearAll(userId) {
 function payoutProcessed(p, status, note) {
   const amount = Number(p.amount).toLocaleString('th-TH');
   if (status === 'paid') {
-    add(p.user_id, { type: 'payout', title: `โอนเงินถอนรายได้ ${amount} บาทแล้ว`, body: note || 'กดเพื่อดูสลิปการโอนเงิน', link: '/dashboard.html#earnings' });
+    add(p.user_id, { type: 'payout', title: `โอนเงินถอนรายได้ ${amount} บาทแล้ว`, body: note || 'กดเพื่อดูสลิปการโอนเงิน', link: '/dashboard.html#withdrawals' });
   } else {
-    add(p.user_id, { type: 'payout', title: `คำขอถอน ${amount} บาทถูกปฏิเสธ (คืนยอดเข้ารายได้แล้ว)`, body: note || '', link: '/dashboard.html#earnings' });
+    add(p.user_id, { type: 'payout', title: `คำขอถอน ${amount} บาทถูกปฏิเสธ (คืนยอดเข้ารายได้แล้ว)`, body: note || '', link: '/dashboard.html#withdrawals' });
   }
 }
 
-module.exports = { add, donationReceived, payoutProcessed, list, markRead, clearAll };
+module.exports = { setIo, add, donationReceived, payoutProcessed, list, markRead, clearAll };

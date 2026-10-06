@@ -20,6 +20,7 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 app.set('io', io);
+require('./src/notify').setIo(io);
 app.set('trust proxy', 1);
 
 

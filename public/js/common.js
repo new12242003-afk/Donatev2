@@ -255,6 +255,40 @@ function timeAgo(ts) {
   return new Date(ts).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
+// แจ้งเตือนแบบ realtime: โหลด socket.io client เอง (บางหน้าไม่ได้ใส่ไว้) แล้วเด้ง toast + อัปเดตกระดิ่งทันที
+function listenNotifications(reload) {
+  const start = () => {
+    const socket = window.io({ transports: ['websocket', 'polling'] });
+    socket.on('notify:new', (n) => {
+      reload();
+      showNotifPopup(n);
+    });
+  };
+  if (window.io) return start();
+  const s = document.createElement('script');
+  s.src = '/socket.io/socket.io.js';
+  s.onload = start;
+  document.head.append(s);
+}
+
+function showNotifPopup(n) {
+  playUiSound('success');
+  const icon = NOTIF_ICONS[n.type] || '🔔';
+  if (!window.Swal) return toast(icon + ' ' + n.title);
+  Swal.fire({
+    toast: true, position: 'top-end', timer: 7000, timerProgressBar: true, showConfirmButton: !!n.link,
+    confirmButtonText: n.type === 'payout' ? 'ดูสลิป / ประวัติ' : 'ดูรายละเอียด',
+    title: icon + ' ' + n.title, text: n.body || '',
+    customClass: { popup: 'notif-toast' },
+    didOpen: (t) => { t.onmouseenter = Swal.stopTimer; t.onmouseleave = Swal.resumeTimer; },
+  }).then((r) => {
+    if (!r.isConfirmed || !n.link) return;
+    const [pathPart, hash] = n.link.split('#');
+    if (location.pathname === pathPart && hash) location.hash = hash;
+    else location.href = n.link;
+  });
+}
+
 function notifBell() {
   const wrap = el('div', { class: 'notif' });
   const btn = el('button', { type: 'button', class: 'notif-btn', title: 'การแจ้งเตือน', 'aria-label': 'การแจ้งเตือน', 'aria-expanded': 'false', html: navIcon('bell') });
@@ -302,6 +336,7 @@ function notifBell() {
   const load = () => api('/api/me/notifications').then((d) => { data = d; render(); }).catch(() => {});
   // หน้าที่มี realtime (แดชบอร์ด) เรียกให้กระดิ่งโหลดใหม่ทันทีเมื่อมีเหตุการณ์ ไม่ต้องรอรอบ 30 วินาที
   window.refreshNotifications = load;
+  listenNotifications(load);
 
   btn.onclick = (e) => {
     e.stopPropagation();

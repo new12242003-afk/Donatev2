@@ -1896,3 +1896,11 @@ body.dn-page .sf-brand .pill-logo-mark { background: #0a0a0b; color: #fff; }
 :root:not([data-theme="light"]) .sidebar-item.active { color: #8ea2ff; }
 :root:not([data-theme="light"]) .sidebar-item.active .ic { color: #8ea2ff; }
 .sidebar-section { text-transform: none; letter-spacing: 0; font-weight: 500; font-size: 12.5px; }
+
+/* แจ้งเตือนเด้ง (มุมขวาบน ใต้แถบเมนู) */
+body .swal2-container.swal2-top-end { top: 84px !important; }
+body .swal2-popup.notif-toast { width: 360px; max-width: calc(100vw - 24px); align-items: flex-start; }
+body .swal2-popup.notif-toast .swal2-title { font-size: 15px; text-align: left; }
+body .swal2-popup.notif-toast .swal2-html-container { font-size: 13px; text-align: left; margin: 4px 0 0; }
+body .swal2-popup.notif-toast .swal2-actions { justify-content: flex-start; margin-top: 8px; }
+body .swal2-popup.notif-toast .swal2-confirm { padding: 6px 14px; font-size: 13px; border-radius: 999px; }

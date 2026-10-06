@@ -149,7 +149,13 @@ function initTabs() {
   switchTab(location.hash.slice(1));
 }
 
+// ลิงก์ตรงไปแท็บย่อยของรับเงิน & รายได้ เช่น #withdrawals (จากแจ้งเตือน "โอนเงินแล้ว")
+const TAB_ALIAS = { income: ['earnings', 'income'], earntx: ['earnings', 'earntx'], withdrawals: ['earnings', 'withdrawals'] };
+
 function switchTab(tab) {
+  const requested = tab;
+  let sub = null;
+  if (TAB_ALIAS[tab]) [tab, sub] = TAB_ALIAS[tab];
   const panels = [...document.querySelectorAll('.tab-panel')];
   if (!panels.some((p) => p.dataset.panel === tab)) {
     const items = [...document.querySelectorAll('.sidebar-item')];
@@ -168,7 +174,9 @@ function switchTab(tab) {
     if (btn) btn.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' });
   }
 
-  if (location.hash.slice(1) !== tab) history.replaceState(null, '', '#' + tab);
+  if (sub) selectEarningsSub(sub);
+  const hash = sub ? requested : tab;
+  if (location.hash.slice(1) !== hash) history.replaceState(null, '', '#' + hash);
 }
 
 function renderAvatar() {
@@ -1216,17 +1224,21 @@ function exportEarnTxPdf() {
     earnTxRows().map((r) => [r[0], r[1], signedBaht(r[2]), fmt(r[3]) + ' ฿', r[4]]));
 }
 
+// แท็บย่อยของ "รับเงิน & รายได้" (รายได้ / การทำธุรกรรม / การถอนเงิน)
+// จำแท็บที่ขอไว้ — ลิงก์ #withdrawals อาจมาถึงก่อนที่ initStreamer จะผูกปุ่มเสร็จ
+let EARN_SUB = null;
+function selectEarningsSub(sub) {
+  EARN_SUB = sub;
+  document.querySelectorAll('.earnings-switch button').forEach((b) => b.classList.toggle('active', b.dataset.etab === sub));
+  document.querySelectorAll('.earnings-subpanel').forEach((p) => (p.hidden = p.dataset.etab !== sub));
+}
+
 function initEarningsSwitch() {
   const switcher = document.querySelector('.earnings-switch');
   if (!switcher) return;
   const buttons = switcher.querySelectorAll('button');
-  buttons.forEach((btn) => {
-    btn.onclick = () => {
-      buttons.forEach((b) => b.classList.toggle('active', b === btn));
-      document.querySelectorAll('.earnings-subpanel').forEach((p) => (p.hidden = p.dataset.etab !== btn.dataset.etab));
-    };
-  });
-  buttons[0].classList.add('active');
+  buttons.forEach((btn) => { btn.onclick = () => selectEarningsSub(btn.dataset.etab); });
+  selectEarningsSub(EARN_SUB || buttons[0].dataset.etab);
 }
 
 // ---------- แก้ไขบัญชีรับเงิน (modal) ----------
