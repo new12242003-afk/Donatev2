@@ -5,7 +5,11 @@ const express = require('express');
 const session = require('express-session');
 const { Server } = require('socket.io');
 
-const { IS_PROD, UPLOAD_DIR, DATA_DIR, ALLOW_MOCK_PAYMENTS } = require('./src/config');
+const { IS_PROD, UPLOAD_DIR, DATA_DIR, ALLOW_MOCK_PAYMENTS, DATA_EPHEMERAL } = require('./src/config');
+if (DATA_EPHEMERAL) {
+  console.warn('\n  ⚠️  [data] ยังไม่ได้ต่อ Volume บน Railway — ฐานข้อมูลและไฟล์อัปโหลดจะหายทุกครั้งที่ deploy');
+  console.warn('  ⚠️  [data] แก้: คลิกขวาที่ service → Attach Volume (Mount path เช่น /data) แล้ว deploy ใหม่\n');
+}
 // เซิร์ฟเวอร์จริงต้องมี SESSION_SECRET — ไม่งั้นใครก็ปลอม cookie เข้าสู่ระบบเป็นคนอื่นได้
 if (IS_PROD && !process.env.SESSION_SECRET) {
   console.error('[error] ต้องตั้งค่า SESSION_SECRET (สตริงสุ่มยาว ๆ) ก่อนรันในโหมด production');
@@ -72,7 +76,7 @@ app.use('/uploads', express.static(UPLOAD_DIR));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ให้ Railway เช็คว่าเซิร์ฟเวอร์พร้อม
-app.get('/healthz', (req, res) => res.json({ ok: true }));
+app.get('/healthz', (req, res) => res.json({ ok: true, persistent: !DATA_EPHEMERAL, volume: !!process.env.RAILWAY_VOLUME_MOUNT_PATH }));
 
 // ---------- realtime ----------
 io.on('connection', (socket) => {
