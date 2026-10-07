@@ -27,7 +27,7 @@ function initSupport({ admin = false } = {}) {
         <div class="sup-empty" id="supEmpty">
           <div class="sup-empty-ic">💬</div>
           <h3>${admin ? 'เลือกเรื่องจากรายการ' : 'มีปัญหาหรือข้อสงสัย? ทักแอดมินได้เลย'}</h3>
-          <p class="muted">${admin ? 'เลือกเรื่องทางซ้ายเพื่ออ่านและตอบกลับ' : 'เช่น เติมเงินไม่เข้า ถอนเงิน ปัญหา Overlay ใน OBS หรือเรื่องแพลน — แอดมินจะตอบกลับที่นี่ และแจ้งเตือนที่กระดิ่ง'}</p>
+          <p class="muted">${admin ? 'เลือกเรื่องทางซ้ายเพื่ออ่านและตอบกลับ' : 'เช่น ชำระค่าแพลนแล้วยังไม่ต่ออายุ สลิปโดเนทไม่ผ่าน ปัญหา Overlay ใน OBS — แอดมินจะตอบกลับที่นี่ และแจ้งเตือนที่กระดิ่ง'}</p>
           ${admin ? '' : '<button type="button" class="pill" id="supNewBtn2">+ ส่งข้อความใหม่</button>'}
         </div>
 
@@ -36,7 +36,7 @@ function initSupport({ admin = false } = {}) {
           <label>หมวดหมู่</label>
           <select id="supCat"></select>
           <label>หัวข้อ</label>
-          <input id="supSubject" maxlength="120" placeholder="เช่น เติมเงินแล้ว Token ไม่เข้า">
+          <input id="supSubject" maxlength="120" placeholder="เช่น โอนค่าแพลนแล้ว แพลนยังไม่ต่ออายุ">
           <label>รายละเอียด</label>
           <textarea id="supBody" rows="6" maxlength="2000" placeholder="อธิบายปัญหาให้ละเอียด เช่น วันเวลา จำนวนเงิน รหัสอ้างอิง"></textarea>
           <div class="row" style="margin-top:14px">
@@ -108,7 +108,7 @@ function initSupport({ admin = false } = {}) {
     const t = d.ticket;
     $('supTitle').textContent = t.subject;
     $('supMeta').innerHTML = (admin
-      ? `@${esc(t.username)} · ${esc(d.user.email || '-')} · Token ${fmt(d.user.token_balance)} · รายได้ ${fmt(d.user.earnings_balance)} ฿ · `
+      ? `@${esc(t.username)} · ${esc(d.user.email || '-')} · `
       : '') + `${esc(t.category)} · เปิดเมื่อ ${fmtTime(t.created_at)} · ${badge(t.status)}`;
     renderActions(t);
     const box = $('supMsgs');

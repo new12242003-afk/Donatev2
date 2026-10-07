@@ -3,13 +3,12 @@ const path = require('path');
 const express = require('express');
 const { db } = require('../db');
 const { requireAuth, requireRole } = require('../auth');
-const ledger = require('../ledger');
 const { token, now, clean, clampInt, buildTitle, resolveTts } = require('../util');
 const { getActiveTier } = require('../tiers');
 const tts = require('../tts');
 const plans = require('../plans');
-const payoutAccounts = require('../payoutAccounts');
-const slips = require('../slips');
+const promptpay = require('../promptpay');
+const slipVerify = require('../slipVerify');
 
 const router = express.Router();
 router.use(requireAuth, requireRole('streamer', 'admin'));
@@ -77,6 +76,9 @@ router.put('/settings', (req, res) => {
     audio_msg_enabled: pick('audio_msg_enabled') ? 1 : 0,
     audio_msg_min_amount: clampInt(pick('audio_msg_min_amount'), 1, 1000000, current.audio_msg_min_amount),
     audio_msg_max_sec: clampInt(pick('audio_msg_max_sec'), 3, 30, current.audio_msg_max_sec),
+    gif_size: ['small', 'medium', 'large'].includes(pick('gif_size')) ? pick('gif_size') : 'large',
+    donations_enabled: pick('donations_enabled') ? 1 : 0,
+    stickers_enabled: pick('stickers_enabled') ? 1 : 0,
     uid: req.user.id,
   };
   db.prepare(`UPDATE streamer_settings SET
@@ -91,6 +93,7 @@ router.put('/settings', (req, res) => {
     gif_enabled=@gif_enabled, gif_min_amount=@gif_min_amount,
     voice_msg_enabled=@voice_msg_enabled, voice_msg_min_amount=@voice_msg_min_amount, voice_msg_max_sec=@voice_msg_max_sec,
     audio_msg_enabled=@audio_msg_enabled, audio_msg_min_amount=@audio_msg_min_amount, audio_msg_max_sec=@audio_msg_max_sec,
+    donations_enabled=@donations_enabled, stickers_enabled=@stickers_enabled, gif_size=@gif_size,
     updated_at=${now()} WHERE user_id=@uid`).run(f);
   res.json({ ok: true, settings: db.prepare('SELECT * FROM streamer_settings WHERE user_id = ?').get(req.user.id) });
 });
@@ -121,15 +124,17 @@ router.delete('/overlay/sound', (req, res) => {
   res.json({ ok: true });
 });
 
+// รูป/GIF ที่แสดงเหนือแจ้งเตือนบน Overlay (ชื่อ route/คอลัมน์ยังเป็น gif เพื่อไม่ต้องย้ายข้อมูลเดิม)
 router.post('/overlay/gif', (req, res) => {
   const data = String(req.body.gif || '');
-  const m = /^data:image\/gif;base64,([a-zA-Z0-9+/=]+)$/.exec(data);
-  if (!m) return res.status(400).json({ error: 'ไฟล์ไม่ถูกต้อง (รองรับ GIF เท่านั้น)' });
+  const m = /^data:image\/(gif|png|jpe?g|webp);base64,([a-zA-Z0-9+/=]+)$/.exec(data);
+  if (!m) return res.status(400).json({ error: 'ไฟล์ไม่ถูกต้อง (รองรับ PNG, JPG, WEBP, GIF)' });
 
-  const buf = Buffer.from(m[1], 'base64');
+  const buf = Buffer.from(m[2], 'base64');
   if (buf.length > 5 * 1024 * 1024) return res.status(400).json({ error: 'ไฟล์ใหญ่เกินไป (สูงสุด 5MB)' });
 
-  const filename = `u${req.user.id}-${Date.now()}.gif`;
+  const ext = m[1] === 'jpeg' ? 'jpg' : m[1];
+  const filename = `u${req.user.id}-${Date.now()}.${ext}`;
   fs.writeFileSync(path.join(GIF_DIR, filename), buf);
   const url = '/uploads/gifs/' + filename;
 
@@ -197,7 +202,7 @@ router.post('/test-alert', async (req, res) => {
       tts: resolveTts(s, tier ? !!tier.tts_enabled : !!s.tts_enabled, amount),
       tts_lang: s.tts_lang, tts_voice_name: s.tts_voice_name || '',
       tts_read_symbols: !!s.tts_read_symbols, tts_persist_after_hide: !!s.tts_persist_after_hide,
-      custom_sound_url: s.custom_sound_url || '', gif_url: showGif ? (s.custom_gif_url || '') : '',
+      custom_sound_url: s.custom_sound_url || '', gif_url: showGif ? (s.custom_gif_url || '') : '', gif_size: s.gif_size || 'large',
       show: true,
     },
     test: true, created_at: Date.now(),
@@ -222,20 +227,12 @@ router.get('/summary', (req, res) => {
     FROM donations WHERE streamer_user_id = ? ORDER BY id DESC LIMIT 50`).all(req.user.id);
   const top = db.prepare(`SELECT display_name, SUM(amount) AS total FROM donations
     WHERE streamer_user_id = ? GROUP BY display_name ORDER BY total DESC LIMIT 5`).all(req.user.id);
-  const u = db.prepare('SELECT earnings_balance FROM users WHERE id = ?').get(req.user.id);
-  res.json({ earnings: u.earnings_balance, count: agg.count, total: agg.total, recent, top });
+  res.json({ count: agg.count, total: agg.total, recent, top });
 });
 
 router.get('/transactions', (req, res) => {
   res.json(db.prepare(`SELECT id, amount, display_name, message, sticker_code, streamer_credit, voice_url, audio_url, created_at
     FROM donations WHERE streamer_user_id = ? ORDER BY id DESC LIMIT 200`).all(req.user.id));
-});
-
-// ประวัติธุรกรรมที่กระทบ "รายได้" โดยตรง (ได้รับโดเนท + ถอนเงิน) เรียงตามเวลา เหมือนรายการเดินบัญชี
-router.get('/earnings/history', (req, res) => {
-  res.json(db.prepare(`SELECT id, type, amount, balance_after, note, created_at
-    FROM transactions WHERE user_id = ? AND type IN ('donation_received', 'withdraw', 'withdraw_refund')
-    ORDER BY id DESC LIMIT 200`).all(req.user.id));
 });
 
 router.get('/supporters', (req, res) => {
@@ -247,7 +244,8 @@ router.get('/supporters', (req, res) => {
            SUM(d.amount) AS total, COUNT(*) AS count
     FROM donations d LEFT JOIN users u ON u.id = d.donor_user_id
     WHERE d.streamer_user_id = ?
-    GROUP BY d.donor_user_id
+    -- ผู้ชมที่โดเนทผ่าน QR โดยไม่ล็อกอิน (ไม่มีบัญชี) แยกกลุ่มตามชื่อที่ใส่
+    GROUP BY CASE WHEN d.donor_user_id IS NULL THEN 'g:' || d.display_name ELSE 'u:' || d.donor_user_id END
     ORDER BY total DESC LIMIT 200`).all(req.user.id));
 });
 
@@ -317,48 +315,42 @@ router.get('/analytics', (req, res) => {
   });
 });
 
-// บัญชีรับเงิน (ธนาคาร / พร้อมเพย์ / TrueMoney) — ใช้ในหน้าถอนเงิน
-router.get('/payout-accounts', (req, res) => {
-  res.json({ accounts: payoutAccounts.getAccounts(req.user.id), banks: payoutAccounts.BANKS, methods: payoutAccounts.METHODS });
-});
+// ---------- QR พร้อมเพย์รับโดเนท (ผู้ชมโอนตรงเข้าบัญชีนี้) ----------
+function promptpayView(u) {
+  const target = u.promptpay_tag ? { tag: u.promptpay_tag, value: u.promptpay_value } : null;
+  return {
+    enabled: !!target, number: promptpay.display(target), type: target ? target.tag : null,
+    name: u.promptpay_name || '', bank_account: u.promptpay_bank_account || '', auto_check: slipVerify.enabled(),
+    // QR รับเงินของบัญชีนี้ (ไม่ระบุยอด) ให้สตรีมเมอร์เห็นว่าตั้งค่าแล้ว/สแกนทดสอบได้
+    qr: target ? promptpay.payloadFor(target, null) : null,
+  };
+}
 
-router.put('/payout-accounts/:method', (req, res) => {
-  const r = payoutAccounts.validate(req.params.method, req.body || {});
-  if (r.error) return res.status(400).json({ error: r.error });
-  res.json({ ok: true, accounts: payoutAccounts.save(req.user.id, req.params.method, r.account) });
-});
+router.get('/promptpay', (req, res) => res.json(promptpayView(req.user)));
 
-router.post('/payout', (req, res) => {
-  const amount = clampInt(req.body.amount, 0, 100000000, 0);
-  const method = String(req.body.method || '');
-  if (amount < 100) return res.status(400).json({ error: 'ถอนขั้นต่ำ 100 บาท' });
-  // ปลายทางมาจากบัญชีที่บันทึกไว้ในระบบเท่านั้น (ไม่รับข้อความปลายทางจากหน้าเว็บตรง ๆ)
-  const acc = payoutAccounts.getAccounts(req.user.id)[method];
-  if (!payoutAccounts.METHODS[method] || !acc) return res.status(400).json({ error: 'กรุณาเลือกช่องทางรับเงินและกรอกข้อมูลให้ครบ' });
-  const account_detail = payoutAccounts.describe(method, acc);
-
-  try {
-    db.transaction(() => {
-      const info = db.prepare(`INSERT INTO payouts (user_id, amount, method, account_detail, status, created_at)
-        VALUES (?, ?, ?, ?, 'pending', ?)`).run(req.user.id, amount, method, account_detail, now());
-      ledger.debit(req.user.id, 'earnings_balance', amount, 'withdraw', 'payout', info.lastInsertRowid, 'ขอถอนเงิน');
-    })();
-  } catch (e) {
-    if (e.code === 'INSUFFICIENT_BALANCE') return res.status(400).json({ error: 'ยอดรายได้คงเหลือไม่พอ' });
-    throw e;
+// รับได้ 2 แบบ: qr_payload = ข้อความที่หน้าเว็บอ่านจากรูป QR รับเงิน / number = หมายเลขพร้อมเพย์ที่พิมพ์เอง
+router.put('/promptpay', (req, res) => {
+  let target;
+  if (req.body.qr_payload) {
+    const r = promptpay.decode(req.body.qr_payload);
+    if (r.error) return res.status(400).json({ error: r.error });
+    target = r.target;
+  } else {
+    target = promptpay.parseTarget(req.body.number);
+    if (!target) return res.status(400).json({ error: 'หมายเลขพร้อมเพย์ต้องเป็นเบอร์มือถือ 10 หลัก, เลขบัตรประชาชน 13 หลัก หรือ e-Wallet ID 15 หลัก' });
   }
+  const name = clean(req.body.name || '', 60);
+  if (!name) return res.status(400).json({ error: 'กรุณาใส่ชื่อบัญชี (ให้ผู้ชมเช็คก่อนโอน)' });
+  const bank = String(req.body.bank_account || '').replace(/\D/g, '');
+  if (bank && (bank.length < 10 || bank.length > 15)) return res.status(400).json({ error: 'เลขบัญชีธนาคารต้องเป็นตัวเลข 10-15 หลัก' });
+  db.prepare('UPDATE users SET promptpay_tag = ?, promptpay_value = ?, promptpay_name = ?, promptpay_bank_account = ? WHERE id = ?')
+    .run(target.tag, target.value, name, bank || null, req.user.id);
+  res.json({ ok: true, ...promptpayView(db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id)) });
+});
+
+router.delete('/promptpay', (req, res) => {
+  db.prepare('UPDATE users SET promptpay_tag = NULL, promptpay_value = NULL, promptpay_name = NULL, promptpay_bank_account = NULL WHERE id = ?').run(req.user.id);
   res.json({ ok: true });
-});
-
-router.get('/payouts', (req, res) => {
-  const rows = db.prepare('SELECT * FROM payouts WHERE user_id = ? ORDER BY id DESC LIMIT 50').all(req.user.id);
-  res.json(rows.map(({ slip_file, ...r }) => ({ ...r, has_slip: !!slip_file })));
-});
-
-// ดูสลิปการโอนเงินของคำขอถอนตัวเอง
-router.get('/payouts/:id/slip', (req, res) => {
-  const p = db.prepare('SELECT slip_file FROM payouts WHERE id = ? AND user_id = ?').get(req.params.id, req.user.id);
-  slips.sendSlip(res, p && p.slip_file);
 });
 
 module.exports = router;

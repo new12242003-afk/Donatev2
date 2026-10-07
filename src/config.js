@@ -45,11 +45,21 @@ function removeUpload(url) {
   if (p) fs.unlink(p, () => {});
 }
 
+// พร้อมเพย์รับค่าแพลนของเว็บ (src/routes/planpay.routes.js) — ไม่ตั้ง = สตรีมเมอร์ซื้อ/ต่ออายุแพลนไม่ได้
+// (เงินโดเนทไม่ผ่านเว็บ: ผู้ชมโอนเข้า QR พร้อมเพย์ของสตรีมเมอร์แต่ละคนโดยตรง)
+const PROMPTPAY_ID = String(process.env.PROMPTPAY_ID || '').replace(/\D/g, '');
+
 module.exports = {
   IS_PROD, DATA_DIR, UPLOAD_DIR, PRIVATE_DIR, DATA_EPHEMERAL, uploadDir, uploadPathFromUrl, removeUpload,
-  // เติมเงินแบบจำลอง (ชำระทันที / หน้าจ่าย PromptPay จำลอง) — เปิดเป็นค่าเริ่มต้น (ยังไม่มี payment gateway จริง)
-  // ⚠️ ใครก็เติม Token ฟรีได้ — ถ้าเริ่มมีการโอนเงินถอนจริง ให้ตั้ง ALLOW_MOCK_PAYMENTS=false
-  ALLOW_MOCK_PAYMENTS: flag('ALLOW_MOCK_PAYMENTS', true),
+  PROMPTPAY_ID,
+  // ชื่อบัญชีพร้อมเพย์ที่แสดงใต้ QR ให้ผู้ใช้เช็คก่อนโอน
+  PROMPTPAY_NAME: String(process.env.PROMPTPAY_NAME || '').trim(),
+  // เลขบัญชีธนาคารที่ผูกกับพร้อมเพย์ — สลิปบางธนาคารแสดงเลขบัญชีผู้รับแทนเบอร์พร้อมเพย์ ใช้เทียบว่าโอนเข้าบัญชีเราจริง
+  PAYMENT_BANK_ACCOUNT: String(process.env.PAYMENT_BANK_ACCOUNT || '').replace(/\D/g, ''),
+  // ตรวจสลิปอัตโนมัติกับธนาคาร (src/slipVerify.js) — ใส่ key ของเจ้าใดเจ้าหนึ่ง (มีทั้งคู่ = ใช้ Slip2Go)
+  // ไม่ตั้งเลย = สลิปค่าแพลนรอแอดมินตรวจ / สลิปโดเนทรอสตรีมเมอร์ยืนยันเอง
+  SLIP2GO_API_KEY: String(process.env.SLIP2GO_API_KEY || '').trim(),
+  EASYSLIP_API_KEY: String(process.env.EASYSLIP_API_KEY || '').trim(),
   // แสดงรหัสยืนยัน/ลิงก์ยืนยันบนหน้าเว็บเมื่อยังไม่ได้ตั้งค่าอีเมล (ยืนยันอีเมลแบบจำลอง)
   // ตั้งค่า Gmail แล้วรหัสจะส่งทางอีเมลจริงอัตโนมัติ / ปิดได้ด้วย SHOW_DEV_CODES=false
   SHOW_DEV_CODES: flag('SHOW_DEV_CODES', true),

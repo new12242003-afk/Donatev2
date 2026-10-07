@@ -23,12 +23,13 @@ function voiceOrDefault(name) {
   return AI_VOICES.some((v) => v.name === name) ? name : DEFAULT_VOICE;
 }
 
-// ประโยคที่อ่านออกเสียง เช่น "test โดเนท 20 aaaaaaa"
+// ประโยคที่อ่านออกเสียง เช่น "test โดเนท 20 บาท aaaaaaa"
 // ต้องตรงกับ speechText() ใน public/overlay.html (ใช้ตอนอ่านด้วยเสียงเบราว์เซอร์)
 function speechText(d, readSymbols) {
-  // ลำดับตายตัวทุกกรณี (รวมส่งสติกเกอร์): ชื่อผู้ส่ง → "โดเนท" → จำนวนเงิน → ข้อความ (ไม่อิงรูปแบบหัวข้อบนจอ)
-  const head = `${d.display_name || 'ไม่ระบุชื่อ'} โดเนท ${Number(d.amount).toLocaleString('th-TH')}`;
-  let msg = String(d.message || '');
+  // ลำดับตายตัวทุกกรณี (รวมส่งสติกเกอร์): ชื่อผู้ส่ง → "โดเนท" → จำนวนเงิน + "บาท" → ข้อความ (ไม่อิงรูปแบบหัวข้อบนจอ)
+  const head = `${d.display_name || 'ไม่ระบุชื่อ'} โดเนท ${Number(d.amount).toLocaleString('th-TH')} บาท`;
+  // ฿ ในข้อความอ่านเป็น "บาท" (100฿ / ฿100 → 100 บาท)
+  let msg = String(d.message || '').replace(/฿\s*(\d[\d,.]*)/g, '$1 บาท').replace(/฿/g, ' บาท ');
   if (!readSymbols) msg = msg.replace(/[@~#*_^`|\\]/g, '');
   // ส่งสติกเกอร์อย่างเดียวไม่มีข้อความ — อ่านชื่อสติกเกอร์แทน
   if (d.sticker_only && d.sticker && !msg) msg = 'สติกเกอร์ ' + (d.sticker.name || '');

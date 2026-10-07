@@ -6,17 +6,13 @@ const { parseSocialLinks } = require('../social');
 const router = express.Router();
 
 router.get('/config', (req, res) => {
-  let pkgs;
-  try { pkgs = JSON.parse(getConfig('topup_packages', '[20,50,100,300,500,1000]')); }
-  catch { pkgs = [20, 50, 100, 300, 500, 1000]; }
   res.json({
     site_name: getConfig('site_name', 'Donate Stream'),
     google_enabled: !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
     default_min_donation: Number(getConfig('default_min_donation', '1')),
     default_max_donation: Number(getConfig('default_max_donation', '1000')),
-    topup_packages: pkgs,
-    // false = ปิดเติมเงินจำลอง (หน้าเติมเงินแสดงข้อความแจ้งแทน)
-    payments_enabled: require('../config').ALLOW_MOCK_PAYMENTS,
+    // ซื้อ/ต่ออายุแพลนได้ไหม (มีบัญชีรับค่าแพลนแล้วหรือยัง: QR ของแอดมิน หรือ PROMPTPAY_ID)
+    plan_payment: !!require('../planOrders').receiver(),
   });
 });
 
@@ -46,6 +42,9 @@ function donateConfig(userId) {
     audio_msg_enabled: !!s.audio_msg_enabled,
     audio_msg_min_amount: s.audio_msg_min_amount || 1,
     audio_msg_max_sec: s.audio_msg_max_sec || 15,
+    // ยังไม่มีแถวตั้งค่า (undefined) = เปิดตามค่าเริ่มต้น
+    donations_enabled: s.donations_enabled !== 0,
+    stickers_enabled: s.stickers_enabled !== 0,
   };
 }
 
@@ -59,7 +58,8 @@ router.get('/streamer-donate-config', (req, res) => {
 // หน้าโดเนทสาธารณะ /u/:username — โปรไฟล์ + ค่าที่ฟอร์มโดเนทต้องใช้ในคำขอเดียว
 router.get('/u/:username', (req, res) => {
   const username = String(req.params.username || '').trim().toLowerCase();
-  const u = db.prepare(`SELECT id, username, role, display_name, avatar_url, bio, creator_category, social_links, email_verified, created_at, plan_expires_at
+  const u = db.prepare(`SELECT id, username, role, display_name, avatar_url, bio, creator_category, social_links, email_verified, created_at, plan_expires_at,
+      promptpay_tag, promptpay_name
     FROM users WHERE username = ? AND role IN ('streamer','admin') AND banned = 0`).get(username);
   if (!u) return res.status(404).json({ error: 'ไม่พบสตรีมเมอร์นี้' });
   res.json({
@@ -71,6 +71,9 @@ router.get('/u/:username', (req, res) => {
     config: donateConfig(u.id),
     // แพลนหมดอายุ = ปิดรับโดเนทชั่วคราว (หน้าโดเนทแสดงข้อความแจ้ง)
     accepting: require('../plans').isActive(u),
+    // ผู้ชมโอนผ่าน QR พร้อมเพย์ของสตรีมเมอร์ — ยังไม่ตั้ง QR = รับโดเนทไม่ได้
+    qr_ready: !!u.promptpay_tag,
+    account_name: u.promptpay_name || '',
   });
 });
 

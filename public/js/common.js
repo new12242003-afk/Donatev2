@@ -28,17 +28,6 @@ async function getMe() {
 
 function fmt(n) { return Number(n || 0).toLocaleString('th-TH'); }
 
-// ไอคอนเพชร = หน่วย Token (ใช้ต่อท้ายตัวเลขแทนคำว่า "Token" / "T") — รูปอยู่ใน .tk ของ app.css
-function tokenIcon() { return '<span class="tk" role="img" aria-label="Token"></span>'; }
-function tkAmount(n) { return `${fmt(n)}${tokenIcon()}`; }
-function navBalanceText(n) {
-  return Number(n || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
-// อัปเดตยอด Token บนแถบเมนูหลังยอดเปลี่ยน (โดเนท/เติมเงิน) โดยไม่ต้องรีเฟรชหน้า
-function updateNavBalance(n) {
-  const amt = document.querySelector('header.nav .user-chip-amount');
-  if (amt) amt.textContent = navBalanceText(n);
-}
 
 function esc(s) {
   return String(s == null ? '' : s).replace(/[<>&"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]));
@@ -386,7 +375,7 @@ function mountNav(me) {
   const path = location.pathname;
 
   nav.append(el('a', { href: '/', class: 'pill-logo' },
-    el('span', { class: 'pill-logo-mark' }, '◆'),
+    el('span', { class: 'pill-logo-mark', html: '<img src="/img/logo-128.png" alt="" class="logo-img">' }),
     el('span', { class: 'pill-logo-text' },
       el('span', { class: 'l1' }, 'Donate'),
       el('span', { class: 'l2' }, 'Stream'))));
@@ -394,7 +383,6 @@ function mountNav(me) {
   const items = el('nav', { class: 'pill-items' });
   items.append(navLink('/', 'home', 'หน้าแรก', path === '/' || path === '/index.html'));
   items.append(navLink('/streamers.html', 'streamers', 'สตรีมเมอร์', path === '/streamers.html'));
-  if (me) items.append(navLink('/topup.html', 'topup', 'เติมเงิน', path === '/topup.html'));
   if (me && me.role === 'admin') items.append(navLink('/admin.html', 'admin', 'แอดมิน', path === '/admin.html'));
   nav.append(items);
 
@@ -406,15 +394,9 @@ function mountNav(me) {
       ? el('img', { class: 'user-chip-avatar', src: me.avatar_url, alt: '' })
       : el('span', { class: 'user-chip-avatar user-chip-fallback' },
           (me.display_name || me.username || '?').trim().charAt(0).toUpperCase()));
-    const balanceBadge = el('span', { class: 'user-chip-balance' },
-      el('span', { class: 'user-chip-balance-dot' }),
-      el('span', { class: 'user-chip-amount' }, navBalanceText(me.token_balance)),
-      el('span', { class: 'tk', role: 'img', 'aria-label': 'Token' }));
     chip.append(el('span', { class: 'user-chip-text' },
       el('span', { class: 'user-chip-name' }, me.display_name || me.username),
       el('span', { class: 'user-chip-role' }, roleLabel(me.role))));
-    // อยู่นอกบล็อกชื่อ/role (ไม่ใช่บรรทัดบนของ 2 บรรทัด) เพื่อให้ badge จัดกึ่งกลางแนวตั้งเทียบกับรูปโปรไฟล์ทั้งก้อน
-    chip.append(balanceBadge);
     // ปุ่มแพลนข้างชื่อ (สตรีมเมอร์เท่านั้น — แอดมินไม่มีวันหมดอายุ) — badge บอกสถานะ: ทดลองฟรีเหลือกี่วัน / แพลนเหลือกี่วัน / หมดอายุ
     if (me.role === 'streamer') nav.append(planButton(me.plan));
     nav.append(chip);
@@ -437,8 +419,8 @@ function mountNav(me) {
 // ไอคอนเส้นของแต่ละแท็บในแดชบอร์ด/แอดมิน (ไม่มีในนี้ = ใช้อีโมจิเดิมของปุ่ม)
 const TAB_ICONS = {
   account: 'user', donate: 'receipt', plan: 'box', planhistory: 'history', settings: 'link', overlay: 'monitor',
-  earnings: 'wallet', transactions: 'list', leaderboard: 'users', stats: 'chart',
-  overview: 'chart', users: 'users', payouts: 'bank', donations: 'heart', topups: 'card', stickers: 'sparkle', sys: 'gear', support: 'chat',
+  transactions: 'list', leaderboard: 'users', stats: 'chart',
+  overview: 'chart', users: 'users', donations: 'heart', planorders: 'card', stickers: 'sparkle', sys: 'gear', support: 'chat',
 };
 
 // เมนูด้านข้างของแดชบอร์ด/แอดมิน (จอคอม): เปลี่ยนอีโมจิเป็นไอคอนเส้นชุดเดียวกับเมนูมือถือ
@@ -471,7 +453,6 @@ function mobileMenu(me) {
     const main = el('div', { class: 'mnav-group' });
     main.append(item('/', 'home', 'หน้าแรก', path === '/' || path === '/index.html'));
     main.append(item('/streamers.html', 'streamers', 'สตรีมเมอร์', path === '/streamers.html'));
-    if (me) main.append(item('/topup.html', 'topup', 'เติมเงิน', path === '/topup.html'));
     if (me && me.role === 'admin') main.append(item('/admin.html', 'admin', 'แอดมิน', path === '/admin.html'));
     if (me && path !== '/dashboard.html') main.append(item('/dashboard.html', 'user', 'แดชบอร์ดของฉัน', false));
     panel.append(main);
@@ -530,91 +511,31 @@ function mountFooter() {
   const f = el('footer', { class: 'site-footer' });
   f.innerHTML = `
     <div class="sf-inner">
-      <div class="sf-brand"><span class="pill-logo-mark">◆</span><div><b>Donate Stream</b><span>แพลตฟอร์มโดเนทสำหรับสตรีมเมอร์ไทย</span></div></div>
+      <div class="sf-brand"><span class="pill-logo-mark"><img src="/img/logo-128.png" alt="" class="logo-img"></span><div><b>Donate Stream</b><span>แพลตฟอร์มโดเนทสำหรับสตรีมเมอร์ไทย</span></div></div>
       <nav class="sf-links">
-        <a href="/">หน้าแรก</a><a href="/streamers.html">สตรีมเมอร์</a><a href="/plans.html">แพลน</a><a href="/topup.html">เติมเงิน</a><a href="/dashboard.html">แดชบอร์ด</a>
+        <a href="/">หน้าแรก</a><a href="/streamers.html">สตรีมเมอร์</a><a href="/plans.html">แพลน</a><a href="/dashboard.html">แดชบอร์ด</a>
       </nav>
       <div class="sf-copy">© ${new Date().getFullYear() + 543} Donate Stream · สงวนลิขสิทธิ์</div>
     </div>`;
   document.body.append(f);
 }
 
-// ---------- สลิปการโอนเงินคำขอถอน: เปิดดู + ส่งออกเป็น PDF ----------
-// p = แถวคำขอถอน { id, amount, account_detail, status, note, created_at, processed_at, username? }
-const PAYOUT_STATUS_TH = { pending: 'รอดำเนินการ', paid: 'โอนแล้ว', rejected: 'ปฏิเสธ' };
-
-function openSlipViewer(p, slipUrl) {
-  if (!window.Swal) return window.open(slipUrl, '_blank');
-  Swal.fire({
-    title: 'สลิปการโอนเงิน', imageUrl: slipUrl, imageAlt: 'สลิปการโอนเงิน',
-    html: `<a href="${slipUrl}" target="_blank" rel="noopener">เปิดรูปเต็มในแท็บใหม่</a>`,
-    showDenyButton: true, denyButtonText: '⬇ ดาวน์โหลด PDF', confirmButtonText: 'ปิด',
-    customClass: { image: 'slip-img', denyButton: 'slip-pdf-btn' },
-    preDeny: () => exportSlipPdf(p, slipUrl).then(() => false),
-  });
-}
-
-function blobToDataUrl(blob) {
+// รูปสลิปที่ผู้ใช้เลือก → ย่อด้านยาวสุดไม่เกิน maxSide แล้วแปลงเป็น JPEG data URL (ไฟล์เล็กลง ส่งขึ้นเซิร์ฟเวอร์เร็ว)
+function slipToDataUrl(file, maxSide = 1600) {
   return new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onload = () => resolve(r.result);
-    r.onerror = () => reject(new Error('อ่านไฟล์สลิปไม่สำเร็จ'));
-    r.readAsDataURL(blob);
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.width * scale);
+      c.height = Math.round(img.height * scale);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      resolve(c.toDataURL('image/jpeg', 0.9));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('ไฟล์รูปภาพไม่ถูกต้อง')); };
+    img.src = url;
   });
 }
 
-// สร้าง PDF A4: หัวเอกสาร + รายละเอียดคำขอถอน + รูปสลิป
-// (เรนเดอร์ HTML เป็นรูปด้วย html2canvas ก่อน เพราะฟอนต์ของ jsPDF ไม่รองรับภาษาไทย)
-async function exportSlipPdf(p, slipUrl) {
-  if (!window.jspdf || !window.html2canvas) return toast('โหลดเครื่องมือสร้าง PDF ไม่สำเร็จ (ตรวจการเชื่อมต่ออินเทอร์เน็ต)', false);
-  let slipData;
-  try {
-    const res = await fetch(slipUrl);
-    if (!res.ok) throw new Error('ไม่พบสลิป');
-    slipData = await blobToDataUrl(await res.blob());
-  } catch (e) { return toast('โหลดสลิปไม่สำเร็จ: ' + e.message, false); }
-
-  const dt = (ts) => (ts ? new Date(ts).toLocaleString('th-TH', { dateStyle: 'long', timeStyle: 'short' }) + ' น.' : '-');
-  const money = Number(p.amount || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  const rows = [
-    ['เลขที่คำขอถอน', '#' + p.id],
-    ...(p.username ? [['ผู้ถอน', '@' + p.username]] : []),
-    ['จำนวนเงิน', money + ' บาท'],
-    ['ถอนไปยัง', p.account_detail || '-'],
-    ['วันที่ขอถอน', dt(p.created_at)],
-    ['วันที่โอน', dt(p.processed_at)],
-    ['สถานะ', PAYOUT_STATUS_TH[p.status] || p.status],
-    ...(p.note ? [['หมายเหตุ', p.note]] : []),
-  ];
-  const cell = 'padding:8px 10px;border:1px solid #e5e7eb;font-size:14px;vertical-align:top';
-  const wrap = document.createElement('div');
-  wrap.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;background:#fff;color:#111;padding:36px 40px;font-family:"IBM Plex Sans Thai","Segoe UI",Tahoma,sans-serif;box-sizing:border-box';
-  wrap.innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #111;padding-bottom:10px;margin-bottom:18px">
-      <div><div style="font-size:24px;font-weight:800">หลักฐานการโอนเงิน</div><div style="font-size:13px;color:#555">การถอนรายได้ · Donate Stream</div></div>
-      <div style="font-size:12px;color:#666;text-align:right">ส่งออกเมื่อ<br>${esc(dt(Date.now()))}</div>
-    </div>
-    <table style="width:100%;border-collapse:collapse;margin-bottom:20px">
-      ${rows.map(([k, v]) => `<tr><td style="${cell};width:150px;background:#f6f7f9;color:#444">${esc(k)}</td><td style="${cell};font-weight:600">${esc(v)}</td></tr>`).join('')}
-    </table>
-    <div style="font-size:14px;font-weight:700;margin-bottom:8px">สลิปการโอนเงิน</div>
-    <div style="text-align:center;border:1px solid #e5e7eb;border-radius:8px;padding:10px"><img src="${slipData}" style="max-width:100%;max-height:620px"></div>`;
-  document.body.append(wrap);
-  try {
-    await new Promise((r) => { const im = wrap.querySelector('img'); if (im.complete) r(); else { im.onload = r; im.onerror = r; } });
-    const canvas = await html2canvas(wrap, { scale: 2, backgroundColor: '#ffffff' });
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
-    const pageW = doc.internal.pageSize.getWidth(), pageH = doc.internal.pageSize.getHeight();
-    // ย่อให้พอดี 1 หน้า A4
-    const scale = Math.min(pageW / canvas.width, pageH / canvas.height);
-    const w = canvas.width * scale, h = canvas.height * scale;
-    doc.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', (pageW - w) / 2, 0, w, h);
-    doc.save(`slip-payout-${p.id}.pdf`);
-    toast('ดาวน์โหลด PDF แล้ว');
-  } catch (e) {
-    toast('สร้าง PDF ไม่สำเร็จ: ' + e.message, false);
-  } finally {
-    wrap.remove();
-  }
-}

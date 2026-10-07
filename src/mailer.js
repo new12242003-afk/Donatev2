@@ -73,7 +73,8 @@ async function sendCodeEmail(to, code, purpose = 'register') {
           <h2>รหัสยืนยันอีเมล</h2>
           <p>ใช้รหัสนี้เพื่อ${forWhat} Donate Stream</p>
           <div style="font-size:34px;font-weight:700;letter-spacing:8px;background:#f4f5f9;border-radius:10px;padding:16px;text-align:center">${code}</div>
-          <p style="color:#999;font-size:12px">รหัสหมดอายุใน 10 นาที — ถ้าคุณไม่ได้ขอรหัสนี้ ไม่ต้องทำอะไร</p>
+          <p style="color:#dc2626;font-size:14px;font-weight:700">รหัสหมดอายุใน 5 นาที</p>
+          <p style="color:#999;font-size:12px">ถ้าคุณไม่ได้ขอรหัสนี้ ไม่ต้องทำอะไร</p>
         </div>`,
     });
   } catch (e) {

@@ -4,6 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>แอดมิน · Donate Stream</title>
+  <link rel="icon" href="/img/favicon-64.png" type="image/png">
+  <link rel="apple-touch-icon" href="/img/logo-180.png">
   <link rel="stylesheet" href="/css/app.css">
 </head>
 <body>
@@ -26,9 +28,8 @@
         <button class="sidebar-item" data-atab="overview"><span class="ic">📊</span> แดชบอร์ด</button>
         <div class="sidebar-section">จัดการ</div>
         <button class="sidebar-item" data-atab="users"><span class="ic">👥</span> ผู้ใช้งาน</button>
-        <button class="sidebar-item" data-atab="payouts"><span class="ic">🏦</span> คำขอถอนเงิน <span class="adm-badge" id="navPayoutBadge" hidden></span></button>
         <button class="sidebar-item" data-atab="donations"><span class="ic">💸</span> โดเนท</button>
-        <button class="sidebar-item" data-atab="topups"><span class="ic">💳</span> เติมเงิน</button>
+        <button class="sidebar-item" data-atab="planorders"><span class="ic">💳</span> ชำระค่าแพลน <span class="adm-badge" id="navPlanBadge" hidden></span></button>
         <button class="sidebar-item" data-atab="stickers"><span class="ic">✨</span> สติกเกอร์</button>
         <button class="sidebar-item" data-atab="support"><span class="ic">💬</span> ข้อความจากผู้ใช้ <span class="adm-badge" data-support-badge hidden></span></button>
         <div class="sidebar-section">ระบบ</div>
@@ -51,10 +52,10 @@
           <div class="adm-two">
             <div class="card">
               <div class="adm-card-head">
-                <h2>คำขอถอนที่รอดำเนินการ</h2>
-                <button type="button" class="sm ghost" data-goto="payouts">ดูทั้งหมด →</button>
+                <h2>ชำระค่าแพลนล่าสุด</h2>
+                <button type="button" class="sm ghost" data-goto="planorders">ดูทั้งหมด →</button>
               </div>
-              <div class="adm-list" id="ovPayouts"></div>
+              <div class="adm-list" id="ovPlanOrders"></div>
             </div>
             <div class="card">
               <div class="adm-card-head">
@@ -87,31 +88,8 @@
             </div>
             <div class="tablewrap">
               <table class="adm-table">
-                <thead><tr><th>ผู้ใช้</th><th>บทบาท</th><th>Token</th><th>รายได้</th><th>สถานะ</th><th>สมัครเมื่อ</th><th></th></tr></thead>
+                <thead><tr><th>ผู้ใช้</th><th>บทบาท</th><th>แพลนถึง</th><th>สถานะ</th><th>สมัครเมื่อ</th><th></th></tr></thead>
                 <tbody id="users"></tbody>
-              </table>
-            </div>
-          </div>
-        </section>
-
-        <!-- คำขอถอนเงิน -->
-        <section class="adm-panel" data-apanel="payouts" hidden>
-          <div class="card">
-            <div class="adm-card-head">
-              <div><h2>คำขอถอนเงิน</h2><div class="muted" id="poSummary"></div></div>
-            </div>
-            <div class="adm-toolbar">
-              <div class="adm-chips" id="poFilter">
-                <button type="button" data-f="pending" class="active">รอดำเนินการ</button>
-                <button type="button" data-f="paid">โอนแล้ว</button>
-                <button type="button" data-f="rejected">ปฏิเสธ</button>
-                <button type="button" data-f="all">ทั้งหมด</button>
-              </div>
-            </div>
-            <div class="tablewrap">
-              <table class="adm-table">
-                <thead><tr><th>เวลา</th><th>ผู้ใช้</th><th>จำนวน</th><th>บัญชีปลายทาง</th><th>สถานะ</th><th>จัดการ</th></tr></thead>
-                <tbody id="po"></tbody>
               </table>
             </div>
           </div>
@@ -138,11 +116,11 @@
           </div>
         </section>
 
-        <!-- เติมเงิน -->
-        <section class="adm-panel" data-apanel="topups" hidden>
+        <!-- ชำระค่าแพลน (QR พร้อมเพย์ของเว็บ) -->
+        <section class="adm-panel" data-apanel="planorders" hidden>
           <div class="card">
             <div class="adm-card-head">
-              <div><h2>เติมเงิน</h2><div class="muted" id="tpSummary"></div></div>
+              <div><h2>ชำระค่าแพลน</h2><div class="muted" id="tpSummary"></div></div>
             </div>
             <div class="adm-toolbar">
               <label class="adm-search">
@@ -151,13 +129,15 @@
               </label>
               <div class="adm-chips" id="tpFilter">
                 <button type="button" data-f="all" class="active">ทั้งหมด</button>
+                <button type="button" data-f="review">รอตรวจสลิป</button>
                 <button type="button" data-f="paid">สำเร็จ</button>
                 <button type="button" data-f="pending">รอชำระ</button>
+                <button type="button" data-f="rejected">ปฏิเสธ</button>
               </div>
             </div>
             <div class="tablewrap tall">
               <table class="adm-table">
-                <thead><tr><th>เวลา</th><th>ผู้ใช้</th><th>จำนวน</th><th>วิธีชำระ</th><th>รหัสอ้างอิง</th><th>สถานะ</th></tr></thead>
+                <thead><tr><th>เวลา</th><th>ผู้ใช้</th><th>แพลน</th><th>ยอด</th><th>รหัสอ้างอิง</th><th>สถานะ</th><th>จัดการ</th></tr></thead>
                 <tbody id="tp"></tbody>
               </table>
             </div>
@@ -172,7 +152,7 @@
               <div><label>โค้ด (a-z, 0-9, _)</label><input id="ns_code" placeholder="เช่น heart"></div>
               <div><label>ชื่อ</label><input id="ns_name" placeholder="เช่น หัวใจ"></div>
               <div><label>อีโมจิ</label><input id="ns_emoji" placeholder="❤️"></div>
-              <div><label>ราคา (Token)</label><input id="ns_cost" type="number" min="0" placeholder="10"></div>
+              <div><label>ราคา (บาท)</label><input id="ns_cost" type="number" min="0" placeholder="10"></div>
               <div><label>แอนิเมชัน</label><select id="ns_anim"></select></div>
               <div class="adm-form-btn"><button type="button" id="addSticker">+ เพิ่มสติกเกอร์</button></div>
             </div>
@@ -191,22 +171,12 @@
             <input id="c_site" placeholder="Donate Stream">
           </div>
           <div class="card">
-            <h2>ค่าธรรมเนียม & การโดเนท</h2>
-            <div class="form-grid c3">
-              <div><label>ค่าธรรมเนียมแพลตฟอร์ม (%)</label><input id="c_fee" type="number" min="0" max="100" step="0.5"></div>
+            <h2>การโดเนท</h2>
+            <div class="form-grid">
               <div><label>โดเนทขั้นต่ำเริ่มต้น (บาท)</label><input id="c_min" type="number" min="1"></div>
               <div><label>โดเนทสูงสุดเริ่มต้น (บาท)</label><input id="c_max" type="number" min="1"></div>
             </div>
-            <div class="hint">💡 ค่าธรรมเนียมหักจากยอดโดเนทก่อนเข้ารายได้สตรีมเมอร์ · ขั้นต่ำ/สูงสุดใช้กับสตรีมเมอร์ที่ยังไม่ได้ตั้งค่าเอง</div>
-          </div>
-          <div class="card">
-            <h2>แพ็กเกจเติมเงิน</h2>
-            <p class="muted">จำนวนเงิน (บาท) ที่แสดงเป็นการ์ดในหน้าเติมเงิน — 1 บาท = 1 Token</p>
-            <div class="adm-pkgs" id="pkgList"></div>
-            <div class="row" style="margin-top:12px">
-              <input id="pkgNew" type="number" min="1" placeholder="เพิ่มแพ็กเกจ เช่น 200" style="max-width:220px">
-              <button type="button" class="sm" id="pkgAdd">+ เพิ่ม</button>
-            </div>
+            <div class="hint">💡 ขั้นต่ำ/สูงสุดใช้กับสตรีมเมอร์ที่ยังไม่ได้ตั้งค่าเอง · เงินโดเนทโอนตรงเข้าบัญชีพร้อมเพย์ของสตรีมเมอร์ ไม่ผ่านเว็บ</div>
           </div>
           <div class="adm-save-bar"><button type="button" id="saveCfg">💾 บันทึกการตั้งค่า</button></div>
         </section>
@@ -226,8 +196,7 @@
         </div>
       </div>
       <div class="adm-user-stats">
-        <div><span>Token</span><b id="umToken"></b><button type="button" class="sm ghost" data-adj="token_balance">± ปรับ</button></div>
-        <div><span>รายได้ (บาท)</span><b id="umEarn"></b><button type="button" class="sm ghost" data-adj="earnings_balance">± ปรับ</button></div>
+        <div><span>แพลนใช้ได้ถึง</span><b id="umPlan"></b></div>
       </div>
       <label>บทบาท</label>
       <div class="adm-chips adm-role" id="umRole">

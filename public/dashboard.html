@@ -4,6 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>แดชบอร์ด · Donate Stream</title>
+  <link rel="icon" href="/img/favicon-64.png" type="image/png">
+  <link rel="apple-touch-icon" href="/img/logo-180.png">
   <link rel="stylesheet" href="/css/app.css">
 </head>
 <body>
@@ -11,27 +13,9 @@
   <script src="/js/common.js"></script>
   <div class="container">
 
-    <div class="card bal-card">
-      <div id="balRow" class="bal-row">
-        <div class="bal-tile">
-          <span class="bal-ic tk-ic">💎</span>
-          <div>
-            <div class="muted">ยอด Token คงเหลือ <span class="bal-note">(1 Token = 1 บาท)</span></div>
-            <div class="balance" id="bal">0</div>
-          </div>
-          <a class="btn sm pill bal-act" href="/topup.html">+ เติมเงิน</a>
-        </div>
-        <div class="bal-tile" id="earnBox" style="display:none">
-          <span class="bal-ic earn-ic">💰</span>
-          <div>
-            <div class="muted">รายได้จากโดเนท</div>
-            <div class="balance" id="earn">0</div>
-          </div>
-          <a class="btn sm pill ghost bal-act" href="/dashboard.html#earnings">ถอนเงิน</a>
-        </div>
-      </div>
-      <div id="verifyWarn" class="muted" style="display:none;margin-top:10px;color:#f87171">
-        ⚠️ ยังไม่ได้ยืนยันอีเมล — เติมเงินและโดเนทไม่ได้จนกว่าจะยืนยัน
+    <div class="card bal-card" id="topCard" hidden>
+      <div id="verifyWarn" class="muted" style="display:none;color:#f87171">
+        ⚠️ ยังไม่ได้ยืนยันอีเมล — ยืนยันอีเมลก่อนเพื่อใช้งานได้ครบทุกฟีเจอร์
       </div>
       <div class="row" style="margin-top:10px">
         <button class="ghost sm" id="becomeStreamer" style="display:none">อัปเกรดบัญชีเป็นสตรีมเมอร์</button>
@@ -48,9 +32,8 @@
         <button class="sidebar-item" data-tab="support"><span class="ic">💬</span> ติดต่อแอดมิน <span class="adm-badge" data-support-badge hidden></span></button>
 
         <div class="sidebar-section" id="navSectionEarn" style="display:none">การรับเงิน</div>
-        <button class="sidebar-item" data-tab="settings" id="navSettings" style="display:none"><span class="ic">🔗</span> ลิงก์หน้าโดเนท</button>
+        <button class="sidebar-item" data-tab="settings" id="navSettings" style="display:none"><span class="ic">🔗</span> หน้าโดเนท & QR รับเงิน <span class="adm-badge" id="navQrBadge" hidden></span></button>
         <button class="sidebar-item" data-tab="overlay" id="navOverlay" style="display:none"><span class="ic">🖥️</span> ตั้งค่า Overlay Live Streaming</button>
-        <button class="sidebar-item" data-tab="earnings" id="navEarnings" style="display:none"><span class="ic">💵</span> รับเงิน & รายได้</button>
 
         <button type="button" class="sidebar-group" id="navSupportGroup" style="display:none">
           <span class="ic">🤝</span><span class="label">ได้รับการสนับสนุนแล้ว</span><span class="chev">⌃</span>
@@ -76,7 +59,7 @@
 
           <div class="card">
             <h2>ประวัติการโดเนทของฉัน</h2>
-            <input id="sentSearch" placeholder="🔍 ค้นหาวันที่ สตรีมเมอร์ ข้อความ สติกเกอร์ หรือจำนวนเงิน" style="max-width:420px">
+            <label class="adm-search dash-search" style="max-width:420px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input id="sentSearch" type="search" placeholder="ค้นหาวันที่ สตรีมเมอร์ ข้อความ สติกเกอร์ หรือจำนวนเงิน" autocomplete="off"></label>
             <div class="row" style="margin-top:10px">
               <a href="#" id="sentExportExcel" class="sm">ดาวน์โหลดข้อมูลลง Excel</a>
               <a href="#" id="sentExportPdf" class="sm">ดาวน์โหลดข้อมูลลง PDF</a>
@@ -153,6 +136,61 @@
               <a class="btn sm ghost" id="openDonatePage" target="_blank">เปิดดูหน้าโดเนท</a>
             </div>
           </div>
+
+          <!-- QR พร้อมเพย์รับโดเนท: ผู้ชมโอนตรงเข้าบัญชีสตรีมเมอร์ -->
+          <div class="card" id="ppqCard">
+            <h2>QR รับโดเนท (พร้อมเพย์)</h2>
+            <p class="muted">ผู้ชมสแกน QR แล้วโอนเงิน<b>เข้าบัญชีของคุณโดยตรง</b> จากนั้นอัปโหลดสลิป ระบบตรวจกับธนาคารแล้วเด้งแจ้งเตือนบนไลฟ์ให้ทันที
+              — อัปโหลดรูป QR "รับเงิน" จากแอปธนาคาร ระบบจะอ่านหมายเลขพร้อมเพย์ แล้วสร้าง QR ที่ใส่ยอดโดเนทให้ผู้ชมอัตโนมัติ</p>
+            <!-- QR ที่ใช้อยู่ตอนนี้ (สร้างจากหมายเลขพร้อมเพย์ที่บันทึกไว้ — สแกนทดสอบได้) -->
+            <div class="ppq-current" id="ppqCurrent" hidden>
+              <div class="ppq-qrcard">
+                <div class="ppq-qrcard-head"><span class="tp-m-promptpay">Prompt<b>Pay</b></span></div>
+                <div class="ppq-qr" id="ppqCurQr"></div>
+                <div class="ppq-qrcard-name" id="ppqCurName"></div>
+                <div class="ppq-qrcard-num" id="ppqCurNum"></div>
+              </div>
+              <div class="ppq-current-info" id="ppqCurInfo"></div>
+            </div>
+            <div class="ppq-warn" id="ppqWarn" hidden>⚠️ ยังไม่ได้ตั้ง QR รับเงิน — ผู้ชมจะโดเนทให้คุณไม่ได้จนกว่าจะตั้งค่า</div>
+
+            <label>รูป QR รับเงิน (จากแอปธนาคาร)</label>
+            <div class="ppq-pick">
+              <label class="btn sm ghost" for="ppqFile">📷 เลือกรูป QR</label>
+              <input type="file" id="ppqFile" accept="image/*" hidden>
+              <span class="muted">หรือพิมพ์หมายเลขพร้อมเพย์</span>
+              <input id="ppqNumber" inputmode="numeric" maxlength="20" placeholder="เบอร์มือถือ / เลขบัตรประชาชน">
+            </div>
+            <div class="ppq-read" id="ppqRead"></div>
+            <!-- รูปที่เพิ่งเลือก + หมายเลขที่อ่านได้ (ยังไม่บันทึก) -->
+            <div class="ppq-preview" id="ppqPreview" hidden>
+              <img id="ppqPreviewImg" alt="รูป QR ที่เลือก">
+              <div>
+                <div class="ppq-preview-title">รูป QR ที่เลือก</div>
+                <div class="ppq-preview-num" id="ppqPreviewNum"></div>
+                <div class="muted">ตรวจหมายเลขให้ตรงกับบัญชีของคุณ แล้วกด "บันทึก QR รับเงิน"</div>
+              </div>
+            </div>
+            <label>ชื่อบัญชี (แสดงให้ผู้ชมเช็คก่อนโอน — ควรตรงกับที่แอปธนาคารแสดงตอนสแกน)</label>
+            <input id="ppqName" maxlength="60" placeholder="เช่น นาย สมชาย ใจดี">
+            <label>เลขบัญชีธนาคารที่ผูกพร้อมเพย์ <span class="muted">(ไม่บังคับ — ช่วยให้ตรวจสลิปอัตโนมัติผ่านมากขึ้น)</span></label>
+            <input id="ppqBank" inputmode="numeric" maxlength="20" placeholder="ตัวเลขล้วน">
+            <div class="row" style="margin-top:14px">
+              <button class="sm" id="ppqSave">บันทึก QR รับเงิน</button>
+              <button class="sm ghost" id="ppqRemove" hidden>ลบ QR</button>
+            </div>
+          </div>
+
+          <div class="card" id="ppqReviewCard">
+            <h2>สลิปโดเนทรอตรวจ <span class="adm-badge" id="ppqReviewCount" hidden></span></h2>
+            <p class="muted">สลิปที่ระบบตรวจอัตโนมัติไม่ผ่าน (เช่น ยอดไม่ตรง อ่าน QR ในสลิปไม่ได้) — <b>เช็คในแอปธนาคารก่อนว่าเงินเข้าจริง</b> แล้วกดยืนยันเพื่อขึ้นแจ้งเตือนบนไลฟ์</p>
+            <div class="tablewrap">
+              <table>
+                <thead><tr><th>เวลา</th><th>จาก</th><th>จำนวน</th><th>สถานะ</th><th>จัดการ</th></tr></thead>
+                <tbody id="ppqReview"></tbody>
+              </table>
+            </div>
+          </div>
         </section>
 
         <!-- ตั้งค่า Overlay Live Streaming (สตรีมเมอร์) -->
@@ -172,6 +210,21 @@
             </div>
           </div>
 
+          <!-- เปิด/ปิดการรับโดเนท และการส่งสติกเกอร์ที่หน้าโดเนทของคุณ (บันทึกอัตโนมัติ) -->
+          <div class="card">
+            <h2>การรับโดเนท</h2>
+            <div class="toggle-list">
+              <label class="toggle-row">
+                <span><b>เปิดรับโดเนท</b><span class="muted">ปิดแล้วหน้าโดเนทของคุณจะขึ้นว่า "ปิดรับโดเนทชั่วคราว" ผู้ชมโดเนทไม่ได้</span></span>
+                <input type="checkbox" class="switch" id="s_donationsEnabled">
+              </label>
+              <label class="toggle-row">
+                <span><b>ให้ผู้ชมส่งสติกเกอร์</b><span class="muted">ปิดแล้วส่วน "ส่งสติกเกอร์" จะไม่แสดงที่หน้าโดเนท (ยังโดเนทเงินได้ตามปกติ)</span></span>
+                <input type="checkbox" class="switch" id="s_stickersEnabled">
+              </label>
+            </div>
+          </div>
+
           <div class="card">
             <h2>สไตล์ & ตัวอย่างการแจ้งเตือน</h2>
             <div class="seg" id="styleSeg">
@@ -181,6 +234,7 @@
             </div>
 
             <div class="overlay-preview" id="ovPreview">
+              <img class="op-img" id="ovPreviewImg" alt="" hidden>
               <div class="op-title" id="ovPreviewTitle"></div>
               <div class="op-msg" id="ovPreviewMsg">นี่คือข้อความทดสอบการแจ้งเตือนโดเนท 🎉</div>
             </div>
@@ -221,7 +275,6 @@
             <input id="s_connector" type="hidden">
             <input id="s_bg" type="hidden" value="transparent">
 
-            <div class="hint">💾 บันทึกอัตโนมัติ — Overlay ใน OBS ใช้สีใหม่ตั้งแต่แจ้งเตือนครั้งถัดไป</div>
             <input id="s_title" type="hidden" value="{name} โดเนท {amount}{currency}">
           </div>
 
@@ -296,17 +349,24 @@
           </div>
 
           <div class="card">
-            <h2>GIF เมื่อได้รับโดเนท</h2>
-            <label class="row" style="margin:0"><input type="checkbox" id="s_gifEnabled" style="width:auto"> แสดง GIF ในแจ้งเตือน</label>
-            <label style="margin-top:10px">ยอดเงินขั้นต่ำที่จะแสดง GIF (บาท)</label>
-            <input id="s_gifMin" type="number" style="max-width:150px">
-            <div class="row" style="margin-top:10px;align-items:center">
-              <label class="btn sm ghost" for="gifInput" style="margin:0">อัปโหลด GIF</label>
-              <input id="gifInput" type="file" accept="image/gif" hidden>
-              <img id="gifPreview" style="height:48px;border-radius:8px;display:none" alt="">
-              <button class="sm ghost" id="removeGif" style="display:none">ลบ GIF</button>
+            <h2>รูป / GIF เมื่อได้รับโดเนท</h2>
+            <p class="muted" style="margin-top:0">แสดงรูปเหนือข้อความแจ้งเตือนบนไลฟ์</p>
+            <label class="row" style="margin:0"><input type="checkbox" id="s_gifEnabled" style="width:auto"> แสดงรูปในแจ้งเตือน</label>
+            <div class="gif-upload-row">
+              <label class="btn sm ghost" for="gifInput" id="gifUploadLabel" style="margin:0">อัปโหลดรูป / GIF</label>
+              <input id="gifInput" type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden>
             </div>
-            <div class="muted" style="margin-top:4px">ไฟล์ GIF เท่านั้น ไม่เกิน 5MB</div>
+            <img id="gifPreview" class="gif-preview" style="display:none" alt="">
+            <div class="muted" style="margin-top:4px">รองรับ PNG, JPG, WEBP หรือ GIF ไม่เกิน 5 MB</div>
+            <label style="margin-top:14px">ขนาดรูปบนไลฟ์</label>
+            <div class="seg gif-size-seg" id="gifSizeSeg">
+              <button type="button" data-size="small">เล็ก</button>
+              <button type="button" data-size="medium">กลาง</button>
+              <button type="button" data-size="large">ใหญ่</button>
+            </div>
+            <input type="hidden" id="s_gifSize" value="large">
+            <label style="margin-top:14px">ยอดเงินขั้นต่ำที่จะแสดงรูป (บาท)</label>
+            <input id="s_gifMin" type="number" style="max-width:150px">
           </div>
 
           <div class="card">
@@ -337,69 +397,6 @@
           </div>
         </section>
 
-        <!-- รับเงิน & รายได้ (สตรีมเมอร์) -->
-        <section class="tab-panel" data-panel="earnings">
-          <div class="seg earnings-switch" style="margin-bottom:16px">
-            <button type="button" data-etab="income">รายได้</button>
-            <button type="button" data-etab="earntx">การทำธุรกรรม</button>
-            <button type="button" data-etab="withdrawals">การถอนเงิน</button>
-          </div>
-
-          <!-- รายได้ -->
-          <div class="earnings-subpanel" data-etab="income">
-            <div class="card">
-              <p class="muted" style="margin:0 0 6px"><b>การถอนเงิน</b></p>
-              <ul class="muted" style="margin:0;padding-left:20px;line-height:1.8">
-                <li>เมื่อขอถอนเงิน คำขอจะเข้าสถานะ "รอดำเนินการ" ทีมงานจะตรวจสอบและโอนเงินเข้าบัญชีที่ระบุไว้ให้ภายในเวลาทำการ</li>
-                <li>ถอนเงินขั้นต่ำ 100 บาทต่อครั้ง ไม่จำกัดจำนวนครั้งต่อวัน</li>
-                <li>ตรวจสอบให้แน่ใจว่าเลขบัญชี/พร้อมเพย์ที่กรอกถูกต้อง มิฉะนั้นอาจทำให้การโอนเงินล่าช้า</li>
-              </ul>
-            </div>
-
-            <div class="card">
-              <div class="muted">รายได้</div>
-              <div class="balance" id="earn2">THB0</div>
-
-              <label style="margin-top:16px">จำนวนเงินที่ต้องการถอน (ขั้นต่ำ 100 บาท)</label>
-              <input id="pAmount" type="number" placeholder="จำนวน">
-
-              <button id="pGo" class="pill" style="width:100%;margin-top:16px">คลิกเพื่อดำเนินการต่อ</button>
-            </div>
-          </div>
-
-          <!-- การทำธุรกรรม -->
-          <div class="earnings-subpanel" data-etab="earntx" hidden>
-            <div class="card">
-              <h2>การทำธุรกรรม</h2>
-              <p class="muted">ประวัติธุรกรรมที่กระทบยอดรายได้ (ได้รับโดเนทและถอนเงิน) เรียงจากล่าสุด</p>
-              <input id="earnTxSearch" placeholder="🔍 ค้นหาวันที่ เวลา ประเภท หรือหมายเหตุ เช่น 6/10/2569, 14:30" style="max-width:420px">
-              <div class="row" style="margin-top:10px">
-                <a href="#" id="earnTxExportExcel" class="sm">ดาวน์โหลดข้อมูลลง Excel</a>
-                <a href="#" id="earnTxExportPdf" class="sm">ดาวน์โหลดข้อมูลลง PDF</a>
-              </div>
-              <div class="tablewrap" style="margin-top:14px">
-                <table>
-                  <thead><tr><th>เวลา</th><th>ประเภท</th><th>จำนวน</th><th>ยอดคงเหลือ</th><th>หมายเหตุ</th></tr></thead>
-                  <tbody id="recvHist"></tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-
-          <!-- การถอนเงิน -->
-          <div class="earnings-subpanel" data-etab="withdrawals" hidden>
-            <div class="card">
-              <h2>การถอนเงิน</h2>
-              <div class="tablewrap">
-                <table>
-                  <thead><tr><th>เวลา</th><th>จำนวน</th><th>ถอนไปยัง</th><th>สถานะ</th><th>หลักฐานการโอน / หมายเหตุ</th></tr></thead>
-                  <tbody id="payoutHist"></tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        </section>
-
         <!-- ทุกธุรกรรม (สตรีมเมอร์) -->
         <section class="tab-panel" data-panel="transactions">
           <div class="seg support-switch" style="margin-bottom:16px">
@@ -411,7 +408,7 @@
           <div class="card">
             <h2>ทุกธุรกรรม</h2>
             <p class="muted">ประวัติโดเนทที่ได้รับทั้งหมด (200 รายการล่าสุด)</p>
-            <input id="txSearch" placeholder="🔍 ค้นหาชื่อ หรือวันที่ เช่น 6/10/2569, ต.ค." style="max-width:360px">
+            <label class="adm-search dash-search" style="max-width:360px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input id="txSearch" type="search" placeholder="ค้นหาชื่อ หรือวันที่ เช่น 6/10/2569, ต.ค." autocomplete="off"></label>
             <div class="row" style="margin-top:10px">
               <a href="#" id="txExportExcel" class="sm">ดาวน์โหลดข้อมูลลง Excel</a>
               <a href="#" id="txExportPdf" class="sm">ดาวน์โหลดข้อมูลลง PDF</a>
@@ -485,7 +482,7 @@
 
           <div class="card">
             <h2>ข้อมูลผู้สนับสนุน</h2>
-            <input id="suppSearch" placeholder="🔍 ค้นหาชื่อ" style="max-width:320px">
+            <label class="adm-search dash-search" style="max-width:320px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input id="suppSearch" type="search" placeholder="ค้นหาชื่อ" autocomplete="off"></label>
             <div class="row" style="margin-top:10px">
               <a href="#" id="suppExportExcel" class="sm">ดาวน์โหลดข้อมูลลง Excel</a>
               <a href="#" id="suppExportPdf" class="sm">ดาวน์โหลดข้อมูลลง PDF</a>
@@ -520,7 +517,7 @@
               </div>
             </div>
             <div style="margin-top:16px">
-              <div class="balance" id="acctDisplayName" style="font-size:20px"></div>
+              <div class="balance" id="acctDisplayName" style="font-size:calc(20px * var(--text-scale))"></div>
               <div class="muted" id="acctRoleLabel"></div>
             </div>
 
@@ -639,52 +636,6 @@
     </div>
   </div>
 
-  <!-- ถอนเงิน: 1) เลือกช่องทางรับเงิน (กด Edit กรอกข้อมูล) → 2) ตรวจสอบข้อมูลก่อนกดตกลง -->
-  <div class="modal-overlay wd-overlay" id="wdModal" hidden>
-    <div class="wd-box" role="dialog" aria-modal="true" aria-label="ถอนเงิน">
-      <button type="button" class="modal-close" id="wdClose" aria-label="ปิด">×</button>
-
-      <div id="wdStep1">
-        <div class="wd-muted">รายได้คงเหลือ</div>
-        <div class="wd-bal" id="wdBal">฿0</div>
-        <div class="wd-amt">จำนวนที่ถอน <b id="wdAmt"></b></div>
-        <div class="wd-to">ถอนไปยัง:</div>
-        <div class="wd-methods" id="wdMethods"></div>
-        <button type="button" class="wd-btn" id="wdNext">ถัดไป</button>
-      </div>
-
-      <div id="wdStep2" hidden>
-        <div class="wd-head">ตรวจสอบข้อมูลก่อนยืนยัน</div>
-        <div class="wd-review" id="wdReview"></div>
-        <p class="wd-note">โปรดตรวจสอบเลขบัญชีและชื่อผู้รับให้ถูกต้อง หากข้อมูลผิดอาจทำให้การโอนเงินล่าช้า — คำขอจะเข้าสถานะ "รอดำเนินการ" และทีมงานจะโอนให้ภายในเวลาทำการ</p>
-        <div class="wd-actions">
-          <button type="button" class="wd-back" id="wdBack">ย้อนกลับ</button>
-          <button type="button" class="wd-btn" id="wdConfirm">ตกลง</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- กรอก/แก้ไขบัญชีรับเงิน (กด Edit) -->
-  <div class="modal-overlay wd-overlay" id="accModal" hidden>
-    <div class="wd-box" role="dialog" aria-modal="true" aria-labelledby="accTitle">
-      <button type="button" class="modal-close" id="accClose" aria-label="ปิด">×</button>
-      <div class="wd-head" id="accTitle">บัญชีธนาคาร</div>
-      <div id="accBankRow">
-        <label>ชื่อธนาคาร</label>
-        <select id="accBank"><option value="">เลือกธนาคาร</option></select>
-      </div>
-      <label id="accNumLabel">หมายเลขบัญชีธนาคาร</label>
-      <input id="accNumber" inputmode="numeric" autocomplete="off">
-      <div class="muted" id="accNumHint" style="margin-top:4px"></div>
-      <div class="form-grid">
-        <div><label>ชื่อผู้รับ</label><input id="accFirst" placeholder="ชื่อ"></div>
-        <div><label>นามสกุลผู้รับ</label><input id="accLast" placeholder="นามสกุล"></div>
-      </div>
-      <button type="button" class="wd-btn" id="accSave" style="margin-top:20px">บันทึก</button>
-    </div>
-  </div>
-
   <!-- เปลี่ยนรูปโปรไฟล์ / รูปพื้นหลัง: 1) Crop & rotate → 2) ดูตัวอย่าง (วงกลม / สี่เหลี่ยม 3:1) → 3) กำลังบันทึก -->
   <div class="modal-overlay av-overlay" id="avatarModal" hidden>
     <div class="av-box av-crop" id="avStepCrop">
@@ -733,6 +684,8 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="/socket.io/socket.io.js"></script>
   <script src="/js/support.js"></script>
   <script src="/js/dashboard.js"></script>

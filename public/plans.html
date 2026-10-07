@@ -4,6 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>แพลน · Donate Stream</title>
+  <link rel="icon" href="/img/favicon-64.png" type="image/png">
+  <link rel="apple-touch-icon" href="/img/logo-180.png">
   <link rel="stylesheet" href="/css/app.css">
 </head>
 <body>
@@ -14,8 +16,9 @@
     <div class="pl-hero">
       <h1 class="pl-title">เลือกแพลน<br><span>ที่เหมาะกับคุณ</span></h1>
       <div class="pl-sub">
-        <p>สมัครสมาชิกแล้ว<b>ใช้ฟรี 21 วัน</b> ทุกฟีเจอร์ —<br>หลังจากนั้นเลือกแพลนเพื่อรับโดเนทต่อได้เลย จ่ายด้วย Token ในกระเป๋า</p>
+        <p>สมัครสมาชิกแล้ว<b>ใช้ฟรี 14 วัน</b> ทุกฟีเจอร์ —<br>หลังจากนั้นเลือกแพลนเพื่อรับโดเนทต่อได้เลย จ่ายด้วยการสแกน QR พร้อมเพย์</p>
         <div class="pl-status" id="plStatus"></div>
+        <div class="dn-pending" id="plPending" hidden></div>
       </div>
     </div>
 
@@ -24,6 +27,96 @@
     <p class="muted pl-foot">ซื้อแพลนขณะที่ยังไม่หมดอายุ เวลาที่เหลือจะไม่หาย — ระบบต่อเวลาจากวันหมดอายุเดิมให้ · แพลนหมดอายุ = หน้าโดเนทของคุณปิดรับโดเนทชั่วคราวจนกว่าจะต่ออายุ</p>
   </div>
 
+  <!-- เลือกวิธีชำระเงินค่าแพลน — ตอนนี้เปิด PromptPay อย่างเดียว ช่องทางอื่นแสดงไว้เป็น "เร็ว ๆ นี้" -->
+  <div class="modal-overlay" id="plMethodModal" hidden>
+    <div class="tp-pay" role="dialog" aria-modal="true" aria-labelledby="plMethodTitle">
+      <div class="tp-pay-left">
+        <h2 id="plMethodTitle">ชำระเงิน</h2>
+        <div class="muted tp-pay-sub">โปรดเลือกวิธีชำระเงิน</div>
+        <div class="tp-methods">
+          <button type="button" class="tp-method" disabled>
+            <span class="tp-m-card"><span class="tp-m-cardicon"></span>Credit/Debit Card</span><span class="tp-soon">เร็ว ๆ นี้</span>
+          </button>
+          <button type="button" class="tp-method" disabled>
+            <span class="tp-m-truemoney">true<b>money</b></span><span class="tp-soon">เร็ว ๆ นี้</span>
+          </button>
+          <button type="button" class="tp-method" disabled>
+            <span class="tp-m-paypal"><b>Pay</b><i>Pal</i></span><span class="tp-soon">เร็ว ๆ นี้</span>
+          </button>
+          <button type="button" class="tp-method active">
+            <span class="tp-m-promptpay">Prompt<b>Pay</b></span>
+          </button>
+        </div>
+        <hr class="tp-sep">
+        <div class="tp-detail">
+          <div class="tp-detail-note">กด <b>ทำการชำระเงิน</b> เพื่อสร้าง QR PromptPay แล้วสแกนจ่ายผ่านแอปธนาคารหรือแอป TrueMoney
+            จากนั้น <b>อัปโหลดสลิป</b> — ระบบตรวจสลิปกับธนาคารแล้วต่ออายุแพลนให้ทันที</div>
+        </div>
+      </div>
+
+      <div class="tp-pay-right">
+        <button class="modal-close" id="plMethodClose" aria-label="ปิด">✕</button>
+        <div class="tp-sum-title" id="plSumTitle"></div>
+        <div class="tp-sum">
+          <div class="tp-sum-row muted"><span>ราคา</span><span id="plSumPrice"></span></div>
+          <div class="tp-sum-row muted"><span>ระยะเวลา</span><span id="plSumDays"></span></div>
+          <div class="tp-sum-row tp-sum-total"><span>รวมทั้งหมด</span><span id="plSumTotal"></span></div>
+        </div>
+        <div class="sp"></div>
+        <button class="tp-paybtn" id="plMethodGo">ทำการชำระเงิน</button>
+        <div class="tp-terms muted">เวลาที่เหลืออยู่จะไม่หาย — ระบบต่อจากวันหมดอายุเดิมให้</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- สแกน QR พร้อมเพย์ของเว็บ (ใส่ราคาแพลนไว้แล้ว) → อัปโหลดสลิป → ตรวจแล้วต่ออายุแพลน -->
+  <div class="modal-overlay pp-overlay" id="plPayModal" hidden>
+    <div class="pp-page" role="dialog" aria-modal="true" aria-label="ชำระค่าแพลนด้วย PromptPay">
+      <div class="pp-left">
+        <div class="pp-merchant">
+          <button type="button" class="pp-back" id="plPayClose" title="ปิด" aria-label="ปิด">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+          </button>
+          <span class="pp-merchant-ic"><img src="/img/logo-128.png" alt="" class="logo-img"></span>
+          <span>Donate Stream</span>
+        </div>
+        <div class="pp-label">ยอดใช้จ่ายทั้งหมด</div>
+        <div class="pp-total" id="plPayTotal"></div>
+        <div class="pp-item" id="plPayItem"></div>
+        <div class="pp-ref">รหัสอ้างอิง <b id="plPayRef"></b></div>
+      </div>
+
+      <div class="pp-right">
+        <div class="pp-brand"><span class="pp-logo"><span class="tp-m-promptpay">Prompt<b>Pay</b></span></span><span>PromptPay</span></div>
+        <div class="pp-expire" id="plPayExpire"></div>
+        <div class="pp-card">
+          <div class="pp-card-head"><span>ยอดใช้จ่ายทั้งหมด</span><b id="plPayTotal2"></b></div>
+          <div class="pp-card-body">
+            <div class="pp-qr" id="plPayQr"></div>
+            <div class="pp-acct" id="plPayAcct"></div>
+            <a href="#" class="pp-save" id="plPaySave">⬇ บันทึกรูป QR (สำหรับจ่ายจากมือถือเครื่องนี้)</a>
+            <div class="pp-qr-state" id="plPayState"></div>
+          </div>
+        </div>
+
+        <div class="pp-slip" id="plPaySlip">
+          <div class="pp-howto-title">โอนแล้ว? อัปโหลดสลิปเพื่อยืนยันการชำระเงิน</div>
+          <label class="pp-slip-btn" for="plSlipFile" id="plSlipBtn">📎 เลือกรูปสลิป</label>
+          <input type="file" id="plSlipFile" accept="image/png,image/jpeg,image/webp" hidden>
+          <div class="pp-slip-msg" id="plSlipMsg"></div>
+        </div>
+
+        <div class="pp-howto-title">วิธีชำระเงิน</div>
+        <ol class="pp-howto">
+          <li>เปิดแอปธนาคาร หรือแอป TrueMoney แล้วสแกน QR (จ่ายจากมือถือเครื่องนี้: กด "บันทึกรูป QR" แล้วเลือกรูปจากอัลบั้มในแอป)</li>
+          <li>ตรวจยอดและชื่อบัญชีให้ตรง แล้วโอนเงิน — <b>อย่าแก้ยอด</b></li>
+          <li>อัปโหลดสลิปด้านบน ระบบตรวจกับธนาคารแล้วต่ออายุแพลนให้ทันที</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="/js/plans.js"></script>
 </body>
 </html>

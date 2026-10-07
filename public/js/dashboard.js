@@ -5,12 +5,12 @@ let ME, STICKERS = [];
   if (!ME) { location.href = '/login.html'; return; }
   mountNav(ME);
 
-  document.getElementById('bal').innerHTML = tkAmount(ME.token_balance);
   document.getElementById('acctUsername').value = ME.username || '';
   document.getElementById('acctEmail').value = ME.email || '';
   document.getElementById('dispName').value = ME.display_name || '';
   if (!ME.email_verified) document.getElementById('verifyWarn').style.display = '';
   if (ME.role === 'donor') document.getElementById('becomeStreamer').style.display = '';
+  document.getElementById('topCard').hidden = !!ME.email_verified && ME.role !== 'donor';
 
   document.getElementById('acctDisplayName').textContent = ME.display_name || ME.username;
   document.getElementById('acctRoleLabel').textContent = '@' + ME.username + ' · ' + roleLabel(ME.role);
@@ -41,7 +41,7 @@ let ME, STICKERS = [];
       await api('/api/me/become-streamer', { method: 'POST' });
       if (window.Swal) {
         playUiSound('success');
-        await Swal.fire({ icon: 'success', title: 'อัปเกรดเป็นสตรีมเมอร์แล้ว', text: 'เริ่มทดลองใช้ฟรี 21 วัน — ตั้งค่า Overlay และแชร์ลิงก์หน้าโดเนทได้เลย', confirmButtonText: 'ตกลง' });
+        await Swal.fire({ icon: 'success', title: 'อัปเกรดเป็นสตรีมเมอร์แล้ว', text: 'เริ่มทดลองใช้ฟรี 14 วัน — ตั้งค่า Overlay และแชร์ลิงก์หน้าโดเนทได้เลย', confirmButtonText: 'ตกลง' });
       }
       location.reload();
     } catch (e) { toast(e.message, false); }
@@ -82,6 +82,7 @@ let ME, STICKERS = [];
       ME.email = email;
       ME.email_verified = false;
       document.getElementById('verifyWarn').style.display = '';
+      document.getElementById('topCard').hidden = false;
       out.textContent = '';
       if (r.mailSent) {
         out.textContent = 'ส่งลิงก์ยืนยันไปที่อีเมลใหม่แล้ว กรุณายืนยันก่อนใช้งานฟีเจอร์ที่ต้องยืนยันอีเมล';
@@ -150,13 +151,8 @@ function initTabs() {
   switchTab(location.hash.slice(1));
 }
 
-// ลิงก์ตรงไปแท็บย่อยของรับเงิน & รายได้ เช่น #withdrawals (จากแจ้งเตือน "โอนเงินแล้ว")
-const TAB_ALIAS = { income: ['earnings', 'income'], earntx: ['earnings', 'earntx'], withdrawals: ['earnings', 'withdrawals'] };
-
 function switchTab(tab) {
   const requested = tab;
-  let sub = null;
-  if (TAB_ALIAS[tab]) [tab, sub] = TAB_ALIAS[tab];
   // #support/<id> = เปิดแชทเรื่องนั้น (support.js จัดการต่อเอง)
   const supportLink = /^support\/\d+$/.test(tab || '');
   if (supportLink) tab = 'support';
@@ -178,8 +174,7 @@ function switchTab(tab) {
     if (btn) btn.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' });
   }
 
-  if (sub) selectEarningsSub(sub);
-  const hash = sub || supportLink ? requested : tab;
+  const hash = supportLink ? requested : tab;
   if (location.hash.slice(1) !== hash) history.replaceState(null, '', '#' + hash);
 }
 
@@ -228,8 +223,8 @@ async function confirmBecomeStreamer() {
         <ul>
           <li>หน้าโดเนทของตัวเอง ให้ผู้ชมโดเนทและส่งสติกเกอร์</li>
           <li>Overlay แจ้งเตือนบนจอไลฟ์ใน OBS</li>
-          <li>รับรายได้และถอนเงินเข้าบัญชี</li>
-          <li><b>ทดลองใช้ฟรี 21 วัน</b> นับจากวันนี้</li>
+          <li>รับเงินโดเนทเข้าบัญชีพร้อมเพย์ของคุณโดยตรง</li>
+          <li><b>ทดลองใช้ฟรี 14 วัน</b> นับจากวันนี้</li>
         </ul>
         <div class="up-warn">⚠️ เปลี่ยนกลับเป็นบัญชีผู้โดเนทไม่ได้ (ยังโดเนทให้คนอื่นได้ตามปกติ)</div>
       </div>`,
@@ -369,13 +364,6 @@ function initImageEditor() {
   };
 }
 
-async function refreshBalance() {
-  ME = await getMe();
-  document.getElementById('bal').innerHTML = tkAmount(ME.token_balance);
-  const e1 = document.getElementById('earn'); if (e1) e1.textContent = fmt(ME.earnings_balance) + ' บาท';
-  const e2 = document.getElementById('earn2'); if (e2) e2.textContent = 'THB' + fmt(ME.earnings_balance);
-}
-
 let SENT_ROWS = [];
 const SENT_HEADER = ['วันที่และเวลา', 'ถึง', 'จำนวนเงิน', 'สติกเกอร์', 'ข้อความ'];
 // กรองประวัติโดเนทตามช่องค้นหา (ชื่อสตรีมเมอร์ / ข้อความ / ชื่อหรือโค้ดสติกเกอร์ / จำนวนเงิน) — ใช้ทั้งตารางและไฟล์ที่ดาวน์โหลด
@@ -508,7 +496,7 @@ function renderPlanHistory(d) {
     else state = '<span class="pd-st">หมดอายุแล้ว</span>';
     const range = h.starts_at && h.expires_at ? `${fmtShortDate(h.starts_at)} – ${fmtShortDate(h.expires_at)}` : '—';
     const label = h.kind === 'trial' ? `ทดลองใช้ฟรี ${h.days} วัน` : `${esc(h.label)} (${h.days} วัน)`;
-    return `<tr><td>${fmtShortDate(h.created_at)}</td><td>${label}</td><td>${h.price ? tkAmount(h.price) : 'ฟรี'}</td><td>${range}</td><td>${state}</td></tr>`;
+    return `<tr><td>${fmtShortDate(h.created_at)}</td><td>${label}</td><td>${h.price ? '฿' + fmt(h.price) : 'ฟรี'}</td><td>${range}</td><td>${state}</td></tr>`;
   }).join('');
 }
 
@@ -520,16 +508,12 @@ async function initStreamer() {
   document.getElementById('navSectionEarn').style.display = '';
   document.getElementById('navSettings').style.display = '';
   document.getElementById('navOverlay').style.display = '';
-  document.getElementById('navEarnings').style.display = '';
   document.getElementById('navSupportGroup').style.display = '';
   document.getElementById('navSupportItems').style.display = '';
   document.getElementById('navSupportGroup').onclick = () => {
     document.getElementById('navSupportGroup').classList.toggle('collapsed');
     document.getElementById('navSupportItems').classList.toggle('collapsed');
   };
-  document.getElementById('earnBox').style.display = '';
-  document.getElementById('earn').textContent = fmt(ME.earnings_balance) + ' บาท';
-  document.getElementById('earn2').textContent = 'THB' + fmt(ME.earnings_balance);
 
   const d = await api('/api/streamer/settings');
   const s = d.settings;
@@ -581,6 +565,8 @@ async function initStreamer() {
   document.getElementById('s_gifEnabled').checked = !!s.gif_enabled;
   document.getElementById('s_voiceMsgEnabled').checked = !!s.voice_msg_enabled;
   document.getElementById('s_audioMsgEnabled').checked = !!s.audio_msg_enabled;
+  document.getElementById('s_donationsEnabled').checked = s.donations_enabled !== 0;
+  document.getElementById('s_stickersEnabled').checked = s.stickers_enabled !== 0;
 
   document.getElementById('wordFilterCount').textContent = (s.word_filter || '').length + '/100';
   document.getElementById('s_wordFilter').oninput = (e) => {
@@ -590,6 +576,8 @@ async function initStreamer() {
   syncSwatchesFromHidden();
   renderUploadPreview('sound', s.custom_sound_url);
   renderUploadPreview('gif', s.custom_gif_url);
+  document.querySelectorAll('#gifSizeSeg button').forEach((b) => { b.onclick = () => setGifSize(b.dataset.size, true); });
+  setGifSize(s.gif_size || 'large', false);
   initTtsVoicePicker(s.tts_voice_name || '');
   initAiTts(s, d.ai_voices || [], !!d.ai_tts_configured);
   initMediaUploads();
@@ -608,13 +596,218 @@ async function initStreamer() {
     sticker_code: ts.value || undefined,
   });
 
-  initWithdraw();
-  initEarningsSwitch();
+  initQrPayments();
 
-  loadStreamerHist();
   loadAllTransactions();
   loadSupporters();
   initStats();
+}
+
+// ---------- QR พร้อมเพย์รับโดเนท: อ่าน QR จากรูป (jsQR) → ส่งข้อความใน QR ให้เซิร์ฟเวอร์ตรวจ + บันทึก ----------
+const PPQ = { payload: null, auto: false };
+
+async function initQrPayments() {
+  const fileInput = document.getElementById('ppqFile');
+  const number = document.getElementById('ppqNumber');
+  fileInput.onchange = async () => {
+    const file = fileInput.files[0];
+    fileInput.value = '';
+    if (!file) return;
+    const read = document.getElementById('ppqRead');
+    read.className = 'ppq-read';
+    read.textContent = 'กำลังอ่าน QR…';
+    showQrPreview(file, null);
+    try {
+      PPQ.payload = await readQrFromImage(file);
+      number.value = '';
+      const num = promptpayNumberFromQr(PPQ.payload);
+      read.classList.add('ok');
+      read.textContent = '✓ อ่าน QR ได้แล้ว — กด "บันทึก QR รับเงิน" เพื่อใช้งาน';
+      showQrPreview(file, num ? 'พร้อมเพย์ ' + num : 'อ่าน QR ได้ (ระบบจะตรวจรูปแบบอีกครั้งตอนบันทึก)');
+    } catch (e) {
+      PPQ.payload = null;
+      read.classList.add('err');
+      read.textContent = e.message;
+      showQrPreview(file, '');
+    }
+  };
+  number.oninput = () => {
+    if (!number.value) return;
+    PPQ.payload = null;
+    document.getElementById('ppqRead').textContent = '';
+    hideQrPreview();
+  };
+  document.getElementById('ppqSave').onclick = saveQrPayment;
+  document.getElementById('ppqRemove').onclick = async () => {
+    if (!(await confirmDialog('ลบ QR รับเงิน?', 'ผู้ชมจะโดเนทให้คุณไม่ได้จนกว่าจะตั้ง QR ใหม่', { confirmText: 'ลบ QR', danger: true }))) return;
+    try { await api('/api/streamer/promptpay', { method: 'DELETE' }); renderQrPayment({ enabled: false }); toast('ลบ QR แล้ว'); }
+    catch (e) { toast(e.message, false); }
+  };
+  renderQrPayment(await api('/api/streamer/promptpay').catch(() => ({ enabled: false })));
+  loadQrReview();
+}
+
+function renderQrPayment(p) {
+  PPQ.auto = !!p.auto_check;
+  const cur = document.getElementById('ppqCurrent');
+  cur.hidden = !p.enabled;
+  document.getElementById('ppqWarn').hidden = !!p.enabled;
+  document.getElementById('ppqRemove').hidden = !p.enabled;
+  if (p.enabled) {
+    // การ์ด QR ที่ใช้อยู่ — สร้างจากหมายเลขพร้อมเพย์ที่บันทึกไว้ (QR ไม่ระบุยอด เหมือนในแอปธนาคาร)
+    const box = document.getElementById('ppqCurQr');
+    box.innerHTML = '';
+    if (window.QRCode && p.qr) new QRCode(box, { text: p.qr, width: 160, height: 160, correctLevel: QRCode.CorrectLevel.M });
+    document.getElementById('ppqCurName').textContent = p.name || '';
+    document.getElementById('ppqCurNum').textContent = 'พร้อมเพย์ ' + formatPromptpay(p.number);
+    document.getElementById('ppqCurInfo').innerHTML = `<div class="ppq-ok">✅ ตั้ง QR รับเงินแล้ว</div>
+      <div>พร้อมเพย์ <b>${esc(formatPromptpay(p.number))}</b></div>
+      <div>ชื่อบัญชี <b>${esc(p.name)}</b></div>
+      ${p.bank_account ? `<div>บัญชีธนาคาร <b>${esc(p.bank_account)}</b></div>` : ''}
+      ${ME.role === 'admin' ? '<div class="muted">QR นี้ใช้รับค่าแพลนจากสตรีมเมอร์ด้วย</div>' : ''}`;
+    hideQrPreview();
+    document.getElementById('ppqName').value = p.name || '';
+    document.getElementById('ppqBank').value = p.bank_account || '';
+  }
+}
+
+function showQrPreview(file, text) {
+  const img = document.getElementById('ppqPreviewImg');
+  if (img.dataset.url) URL.revokeObjectURL(img.dataset.url);
+  img.dataset.url = URL.createObjectURL(file);
+  img.src = img.dataset.url;
+  const num = document.getElementById('ppqPreviewNum');
+  num.textContent = text === null ? 'กำลังอ่าน QR…' : text || 'อ่าน QR ในรูปนี้ไม่ได้';
+  num.classList.toggle('err', text === '');
+  document.getElementById('ppqPreview').hidden = false;
+}
+
+function hideQrPreview() {
+  const img = document.getElementById('ppqPreviewImg');
+  if (img.dataset.url) { URL.revokeObjectURL(img.dataset.url); delete img.dataset.url; }
+  img.removeAttribute('src');
+  document.getElementById('ppqPreview').hidden = true;
+}
+
+// อ่านหมายเลขพร้อมเพย์จากข้อความใน QR (แท็ก 29) ไว้โชว์ก่อนบันทึก — เซิร์ฟเวอร์ตรวจรูปแบบ/checksum อีกครั้งตอนบันทึก
+function promptpayNumberFromQr(text) {
+  const tlv = (str) => {
+    const out = {};
+    for (let i = 0; i + 4 <= str.length;) {
+      const len = Number(str.substr(i + 2, 2));
+      if (!Number.isInteger(len)) return out;
+      out[str.substr(i, 2)] = str.substr(i + 4, len);
+      i += 4 + len;
+    }
+    return out;
+  };
+  const pp = tlv(tlv(String(text || ''))['29'] || '');
+  if (pp['01']) return formatPromptpay('0' + pp['01'].slice(4));
+  if (pp['04']) return pp['04'].slice(0, 3) + '-' + pp['04'].slice(3);
+  return pp['02'] || pp['03'] || '';
+}
+
+function formatPromptpay(n) {
+  const d = String(n || '').replace(/\D/g, '');
+  if (d.length === 10) return d.slice(0, 3) + '-' + d.slice(3, 6) + '-' + d.slice(6);
+  if (d.length === 13) return `${d[0]}-${d.slice(1, 5)}-${d.slice(5, 10)}-${d.slice(10, 12)}-${d[12]}`;
+  return n || '';
+}
+
+// ถอด QR จากรูป: ย่อรูปใหญ่ก่อน (เร็วขึ้น) ถ้าอ่านไม่ได้ลองขนาดเต็มอีกรอบ
+async function readQrFromImage(file) {
+  if (!window.jsQR) throw new Error('โหลดตัวอ่าน QR ไม่สำเร็จ (ตรวจการเชื่อมต่ออินเทอร์เน็ต) — พิมพ์หมายเลขพร้อมเพย์แทนได้');
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((resolve, reject) => {
+      const i = new Image();
+      i.onload = () => resolve(i);
+      i.onerror = () => reject(new Error('ไฟล์รูปภาพไม่ถูกต้อง'));
+      i.src = url;
+    });
+    for (const maxSide of [1000, 2400]) {
+      const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.width * scale);
+      c.height = Math.round(img.height * scale);
+      const ctx = c.getContext('2d');
+      ctx.drawImage(img, 0, 0, c.width, c.height);
+      const r = jsQR(ctx.getImageData(0, 0, c.width, c.height).data, c.width, c.height);
+      if (r && r.data) return r.data;
+    }
+    throw new Error('ไม่พบ QR ในรูป — ใช้รูปที่เห็น QR ชัด ๆ ทั้งอัน หรือพิมพ์หมายเลขพร้อมเพย์แทน');
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+async function saveQrPayment() {
+  const number = document.getElementById('ppqNumber').value.trim();
+  const body = {
+    name: document.getElementById('ppqName').value.trim(),
+    bank_account: document.getElementById('ppqBank').value.trim(),
+  };
+  if (PPQ.payload) body.qr_payload = PPQ.payload;
+  else if (number) body.number = number;
+  else if (document.getElementById('ppqCurrent').hidden) return toast('เลือกรูป QR หรือพิมพ์หมายเลขพร้อมเพย์ก่อน', false);
+  else return toast('เลือกรูป QR ใหม่ หรือพิมพ์หมายเลขพร้อมเพย์ เพื่อบันทึกการเปลี่ยนแปลง', false);
+  try {
+    const r = await api('/api/streamer/promptpay', { method: 'PUT', body });
+    PPQ.payload = null;
+    document.getElementById('ppqNumber').value = '';
+    document.getElementById('ppqRead').textContent = '';
+    renderQrPayment(r);
+    document.getElementById('ppqCurrent').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    toast('บันทึก QR รับเงินแล้ว');
+  } catch (e) { toast(e.message, false); }
+}
+
+const QR_REVIEW_STATUS = { review: ['รอตรวจ', 'wait'], completed: ['ยืนยันแล้ว', 'on'], rejected: ['ปฏิเสธ', 'off'] };
+
+async function loadQrReview() {
+  const rows = await api('/api/qr-donate/manage/list').catch(() => []);
+  const pending = rows.filter((r) => r.status === 'review').length;
+  // ตรวจอัตโนมัติเปิดอยู่และไม่มีรายการค้างจากก่อนหน้า → ไม่ต้องโชว์ส่วนนี้
+  document.getElementById('ppqReviewCard').hidden = PPQ.auto && !rows.length;
+  ['ppqReviewCount', 'navQrBadge'].forEach((id) => {
+    const b = document.getElementById(id);
+    b.hidden = !pending;
+    b.textContent = pending;
+  });
+  const byId = Object.fromEntries(rows.map((r) => [r.id, r]));
+  document.getElementById('ppqReview').innerHTML = rows.map((r) => {
+    const [label, cls] = QR_REVIEW_STATUS[r.status] || [r.status, ''];
+    const actions = `<button class="sm ghost ppq-slip" data-id="${r.id}">🧾 สลิป</button>`
+      + (r.status === 'review' ? ` <button class="sm ppq-ok" data-id="${r.id}">✓ เงินเข้าแล้ว</button> <button class="sm ghost ppq-no" data-id="${r.id}">ปฏิเสธ</button>` : '');
+    return `<tr><td>${fmtShortDate(r.created_at)}</td><td><b>${esc(r.display_name)}</b>${r.message ? `<div class="muted">${esc(r.message)}</div>` : ''}</td>`
+      + `<td><b>${fmt(r.amount)} ฿</b></td><td><span class="pd-st ${cls}">${label}</span>${r.note ? `<div class="muted">${esc(r.note)}</div>` : ''}</td><td>${actions}</td></tr>`;
+  }).join('') || '<tr><td colspan="5" class="muted">ยังไม่มีสลิปที่ต้องตรวจ</td></tr>';
+
+  document.querySelectorAll('#ppqReview .ppq-slip').forEach((b) => {
+    b.onclick = () => {
+      const r = byId[b.dataset.id], url = `/api/qr-donate/manage/${r.id}/slip`;
+      Swal.fire({
+        title: `สลิป ${fmt(r.amount)} บาท จาก ${esc(r.display_name)}`, imageUrl: url, imageAlt: 'สลิป', customClass: { image: 'slip-img' },
+        html: `${r.note ? `<div class="muted">${esc(r.note)}</div>` : ''}<a href="${url}" target="_blank" rel="noopener">เปิดรูปเต็มในแท็บใหม่</a>`,
+        confirmButtonText: 'ปิด',
+      });
+    };
+  });
+  document.querySelectorAll('#ppqReview .ppq-ok').forEach((b) => {
+    b.onclick = async () => {
+      const r = byId[b.dataset.id];
+      if (!(await confirmDialog(`ยืนยันว่าได้รับ ${fmt(r.amount)} บาทแล้ว?`, 'เช็คในแอปธนาคารก่อน — กดแล้วแจ้งเตือนจะขึ้นบนไลฟ์ทันที', { confirmText: 'ยืนยัน เงินเข้าแล้ว' }))) return;
+      try { await api(`/api/qr-donate/manage/${r.id}/process`, { method: 'POST', body: {} }); toast('ยืนยันแล้ว แจ้งเตือนขึ้นบนไลฟ์'); loadQrReview(); }
+      catch (e) { toast(e.message, false); }
+    };
+  });
+  document.querySelectorAll('#ppqReview .ppq-no').forEach((b) => {
+    b.onclick = async () => {
+      if (!(await confirmDialog('ปฏิเสธสลิปนี้?', 'ผู้ชมจะเห็นว่าโดเนทไม่ผ่านการตรวจสอบ และไม่มีแจ้งเตือนบนไลฟ์', { confirmText: 'ปฏิเสธ', danger: true }))) return;
+      try { await api(`/api/qr-donate/manage/${b.dataset.id}/process`, { method: 'POST', body: { status: 'rejected' } }); toast('ปฏิเสธแล้ว'); loadQrReview(); }
+      catch (e) { toast(e.message, false); }
+    };
+  });
 }
 
 // ---------- realtime: มีโดเนทเข้า/ส่งโดเนท → โหลดตาราง + ยอดเงินใหม่ทันที (socket ใช้ session ของเว็บ) ----------
@@ -623,14 +816,14 @@ function initRealtime() {
   const socket = io();
   socket.on('donation:received', async () => {
     if (ME.role === 'donor') return;
-    await Promise.all([loadAllTransactions({ flashNew: true }), loadStreamerHist(), loadSupporters(), refreshBalance()]);
+    await Promise.all([loadAllTransactions({ flashNew: true }), loadSupporters()]);
     if (window.refreshNotifications) window.refreshNotifications();
   });
-  socket.on('donation:sent', () => { loadSent(); refreshBalance(); });
-  // แอดมินอนุมัติ/ปฏิเสธคำขอถอน หรือแนบสลิป → อัปเดตประวัติการถอน + ยอดรายได้ + กระดิ่ง
-  socket.on('payout:updated', () => {
-    loadStreamerHist();
-    refreshBalance();
+  socket.on('donation:sent', () => { loadSent(); });
+  // มีสลิปโดเนทผ่าน QR ที่ต้องตรวจเอง
+  socket.on('qrdonation:review', () => {
+    if (ME.role === 'donor') return;
+    loadQrReview();
     if (window.refreshNotifications) window.refreshNotifications();
   });
 }
@@ -807,6 +1000,9 @@ function initOverlayPreview() {
     };
   });
 
+  // เปิด/ปิดรูปในแจ้งเตือน → ตัวอย่างอัปเดตทันที
+  document.getElementById('s_gifEnabled').addEventListener('change', updateOverlayPreview);
+
   initColorSwatches();
   updateOverlayPreview();
 }
@@ -890,12 +1086,15 @@ function collectOverlaySettings() {
     tts_ai_voice: $v('s_ttsAiVoice'),
     gif_enabled: $c('s_gifEnabled'),
     gif_min_amount: +$v('s_gifMin'),
+    gif_size: $v('s_gifSize'),
     voice_msg_enabled: $c('s_voiceMsgEnabled'),
     voice_msg_min_amount: +$v('s_voiceMsgMin'),
     voice_msg_max_sec: +$v('s_voiceMsgMax'),
     audio_msg_enabled: $c('s_audioMsgEnabled'),
     audio_msg_min_amount: +$v('s_audioMsgMin'),
     audio_msg_max_sec: +$v('s_audioMsgMax'),
+    donations_enabled: $c('s_donationsEnabled'),
+    stickers_enabled: $c('s_stickersEnabled'),
   };
 }
 
@@ -994,6 +1193,21 @@ function updateOverlayPreview() {
     else { span.textContent = part; span.style.color = connector; }
     titleEl.append(span);
   });
+
+  // รูป/GIF เหนือข้อความ — ขนาดตามที่เลือก (ย่อสัดส่วนจากของจริงบน Overlay)
+  const img = document.getElementById('ovPreviewImg');
+  const src = document.getElementById('gifPreview').getAttribute('src');
+  img.hidden = !(document.getElementById('s_gifEnabled').checked && src);
+  if (!img.hidden && img.getAttribute('src') !== src) img.src = src;
+  img.className = 'op-img size-' + (document.getElementById('s_gifSize').value || 'large');
+}
+
+// ปุ่มเลือกขนาดรูปบนไลฟ์ → เก็บค่าใน #s_gifSize แล้วบันทึกอัตโนมัติเหมือนการตั้งค่าอื่น
+function setGifSize(size, save) {
+  document.getElementById('s_gifSize').value = size;
+  document.querySelectorAll('#gifSizeSeg button').forEach((b) => b.classList.toggle('active', b.dataset.size === size));
+  updateOverlayPreview();
+  if (save) scheduleOverlaySave(150);
 }
 
 // ---------- อัปโหลดเสียง/GIF ของ Overlay ----------
@@ -1013,10 +1227,12 @@ function renderUploadPreview(kind, url) {
     if (url) { player.src = url; player.style.display = ''; removeBtn.style.display = ''; }
     else { player.style.display = 'none'; removeBtn.style.display = 'none'; player.removeAttribute('src'); }
   } else {
+    // มีรูปแล้ว → ปุ่มเดียวกันเปลี่ยนเป็น "เปลี่ยนรูป / GIF" (เลือกไฟล์ใหม่ทับรูปเดิม)
     const img = document.getElementById('gifPreview');
-    const removeBtn = document.getElementById('removeGif');
-    if (url) { img.src = url; img.style.display = ''; removeBtn.style.display = ''; }
-    else { img.style.display = 'none'; removeBtn.style.display = 'none'; img.removeAttribute('src'); }
+    document.getElementById('gifUploadLabel').textContent = url ? 'เปลี่ยนรูป / GIF' : 'อัปโหลดรูป / GIF';
+    if (url) { img.src = url; img.style.display = ''; }
+    else { img.style.display = 'none'; img.removeAttribute('src'); }
+    if (document.getElementById('ovPreviewImg')) updateOverlayPreview();
   }
 }
 
@@ -1050,14 +1266,10 @@ function initMediaUploads() {
       const dataUrl = await fileToDataUrl(file);
       const r = await api('/api/streamer/overlay/gif', { method: 'POST', body: { gif: dataUrl } });
       renderUploadPreview('gif', r.custom_gif_url);
-      toast('อัปโหลด GIF แล้ว');
-    } catch (err) { toast(err.message, false); }
-  };
-  document.getElementById('removeGif').onclick = async () => {
-    try {
-      await api('/api/streamer/overlay/gif', { method: 'DELETE' });
-      renderUploadPreview('gif', null);
-      toast('ลบ GIF แล้ว');
+      // อัปโหลดรูปแล้วเปิดสวิตช์แสดงรูปให้เลย (ไม่งั้นอัปโหลดแล้วยังไม่ขึ้นบนไลฟ์)
+      const on = document.getElementById('s_gifEnabled');
+      if (!on.checked) { on.checked = true; updateOverlayPreview(); scheduleOverlaySave(150); }
+      toast('อัปโหลดรูปแล้ว');
     } catch (err) { toast(err.message, false); }
   };
 }
@@ -1170,82 +1382,6 @@ async function renderTiers() {
   });
 }
 
-let earnTxAllRows = [];
-
-const PAYOUT_STATUS = { pending: ['รอดำเนินการ', 'wait'], paid: ['โอนแล้ว', 'on'], rejected: ['ปฏิเสธ (คืนยอดแล้ว)', 'off'] };
-function payoutStatusBadge(s) {
-  const [label, cls] = PAYOUT_STATUS[s] || [s, ''];
-  return `<span class="pd-st ${cls}">${esc(label)}</span>`;
-}
-const EARN_TX_TYPE_LABEL = { donation_received: 'ได้รับโดเนท', withdraw: 'ถอนเงิน', withdraw_refund: 'คืนยอดถอนเงิน (ถูกปฏิเสธ)' };
-
-async function loadStreamerHist() {
-  earnTxAllRows = await api('/api/streamer/earnings/history').catch(() => []);
-  renderEarnTx();
-  document.getElementById('earnTxSearch').oninput = renderEarnTx;
-  document.getElementById('earnTxExportExcel').onclick = (e) => { e.preventDefault(); exportEarnTxExcel(); };
-  document.getElementById('earnTxExportPdf').onclick = (e) => { e.preventDefault(); exportEarnTxPdf(); };
-
-  const p = await api('/api/streamer/payouts').catch(() => []);
-  const byId = Object.fromEntries(p.map((x) => [x.id, x]));
-  document.getElementById('payoutHist').innerHTML = p.map((x) => {
-    const proof = x.has_slip
-      ? `<button type="button" class="sm ghost view-slip" data-id="${x.id}">🧾 ดูสลิป</button>`
-      : '';
-    const note = x.note ? `<div class="muted" style="margin-top:4px">${esc(x.note)}</div>` : '';
-    return `<tr><td>${new Date(x.created_at).toLocaleString('th-TH')}</td><td>${fmt(x.amount)} ฿</td>`
-      + `<td>${esc(x.account_detail || '-')}</td><td>${payoutStatusBadge(x.status)}</td><td>${proof || (x.note ? '' : '<span class="muted">-</span>')}${note}</td></tr>`;
-  }).join('') || '<tr><td colspan="5" class="muted">ไม่มีประวัติการถอนเงิน</td></tr>';
-  document.querySelectorAll('#payoutHist .view-slip').forEach((b) => { b.onclick = () => openSlipViewer(byId[b.dataset.id], '/api/streamer/payouts/' + b.dataset.id + '/slip'); });
-}
-
-// ค้นได้ทั้งหมายเหตุ ประเภท จำนวนเงิน และวันที่/เวลา (รูปแบบเดียวกับช่องค้นหาอื่นในแดชบอร์ด) — ใช้ทั้งตารางและไฟล์ที่ดาวน์โหลด
-function filteredEarnTx() {
-  const q = (document.getElementById('earnTxSearch').value || '').trim().toLowerCase();
-  return q
-    ? earnTxAllRows.filter((d) => [d.note, EARN_TX_TYPE_LABEL[d.type] || d.type, String(d.amount), ...dateSearchTexts(d.created_at)]
-      .some((v) => (v || '').toLowerCase().includes(q)))
-    : earnTxAllRows;
-}
-// ยอดในสมุดบัญชีเก็บเป็นค่าบวก/ลบอยู่แล้ว (ถอนเงิน = ติดลบ) — ใส่ + ให้เฉพาะยอดที่เป็นบวก
-const signedBaht = (n) => (n > 0 ? '+' : '') + fmt(n) + ' ฿';
-
-function renderEarnTx() {
-  const rows = filteredEarnTx();
-  document.getElementById('recvHist').innerHTML = rows.map((d) =>
-    `<tr><td>${new Date(d.created_at).toLocaleString('th-TH')}</td><td>${esc(EARN_TX_TYPE_LABEL[d.type] || d.type)}</td>`
-    + `<td class="${d.amount < 0 ? 'tx-neg' : 'tx-pos'}">${signedBaht(d.amount)}</td><td>${fmt(d.balance_after)} ฿</td><td>${esc(d.note || '')}</td></tr>`
-  ).join('') || '<tr><td colspan="5" class="muted">ไม่มีประวัติการทำธุรกรรม</td></tr>';
-}
-
-const EARN_TX_HEADER = ['วันที่และเวลา', 'ประเภท', 'จำนวน (บาท)', 'ยอดคงเหลือ (บาท)', 'หมายเหตุ'];
-function earnTxRows() {
-  return filteredEarnTx().map((d) => [new Date(d.created_at).toLocaleString('th-TH'), EARN_TX_TYPE_LABEL[d.type] || d.type, d.amount, d.balance_after, d.note || '']);
-}
-function exportEarnTxExcel() { exportCsv('earnings-transactions.csv', EARN_TX_HEADER, earnTxRows()); }
-function exportEarnTxPdf() {
-  return exportTablePdf('earnings-transactions.pdf', 'การทำธุรกรรม (รายได้)', EARN_TX_HEADER,
-    earnTxRows().map((r) => [r[0], r[1], signedBaht(r[2]), fmt(r[3]) + ' ฿', r[4]]));
-}
-
-// แท็บย่อยของ "รับเงิน & รายได้" (รายได้ / การทำธุรกรรม / การถอนเงิน)
-// จำแท็บที่ขอไว้ — ลิงก์ #withdrawals อาจมาถึงก่อนที่ initStreamer จะผูกปุ่มเสร็จ
-let EARN_SUB = null;
-function selectEarningsSub(sub) {
-  EARN_SUB = sub;
-  document.querySelectorAll('.earnings-switch button').forEach((b) => b.classList.toggle('active', b.dataset.etab === sub));
-  document.querySelectorAll('.earnings-subpanel').forEach((p) => (p.hidden = p.dataset.etab !== sub));
-}
-
-function initEarningsSwitch() {
-  const switcher = document.querySelector('.earnings-switch');
-  if (!switcher) return;
-  const buttons = switcher.querySelectorAll('button');
-  buttons.forEach((btn) => { btn.onclick = () => selectEarningsSub(btn.dataset.etab); });
-  selectEarningsSub(EARN_SUB || buttons[0].dataset.etab);
-}
-
-// ---------- แก้ไขบัญชีรับเงิน (modal) ----------
 // ---------- ลิงก์โซเชียลมีเดีย (จัดการบัญชี → โปรไฟล์สาธารณะ) ----------
 function initSocialModal() {
   const modal = document.getElementById('socialModal');
@@ -1296,147 +1432,6 @@ function renderSocialPreview() {
   const row = socialLinksRow(ME.social_links);
   if (row) box.append(...row.childNodes);
   else box.append(el('span', { class: 'muted' }, 'ยังไม่ได้เพิ่มลิงก์'));
-}
-
-// ---------- ถอนเงิน: เลือกช่องทาง (51.png) → ตรวจสอบข้อมูล → ตกลง ----------
-const WD = { accounts: {}, banks: [], methods: {}, selected: null, amount: 0 };
-const WD_HINT = {
-  bank: 'กรอกเลขบัญชีธนาคาร 10-15 หลัก (ไม่รับบัญชีเสมือน)',
-  promptpay: 'เบอร์มือถือ 10 หลัก หรือเลขบัตรประชาชน 13 หลักที่ผูกพร้อมเพย์',
-  truemoney: 'เบอร์มือถือ 10 หลักที่ใช้สมัคร TrueMoney Wallet',
-};
-const money = (n) => '฿' + Number(n || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-function wdSummary(method, a) {
-  if (!a) return '';
-  const who = a.first_name + ' ' + a.last_name;
-  return (method === 'bank' ? a.bank + ' • ' : '') + a.number + ' • ' + who;
-}
-
-async function initWithdraw() {
-  const d = await api('/api/streamer/payout-accounts').catch(() => null);
-  if (d) Object.assign(WD, { accounts: d.accounts || {}, banks: d.banks || [], methods: d.methods || {} });
-  const sel = document.getElementById('accBank');
-  WD.banks.forEach((b) => sel.append(el('option', { value: b }, b)));
-
-  document.getElementById('pGo').onclick = () => {
-    const amount = Math.floor(+document.getElementById('pAmount').value);
-    if (!(amount >= 100)) return toast('ถอนขั้นต่ำ 100 บาท', false);
-    if (amount > (ME.earnings_balance || 0)) return toast('ยอดรายได้คงเหลือไม่พอ', false);
-    WD.amount = amount;
-    document.getElementById('wdBal').textContent = money(ME.earnings_balance);
-    document.getElementById('wdAmt').textContent = money(amount);
-    if (!WD.selected) WD.selected = Object.keys(WD.methods).find((m) => WD.accounts[m]) || 'bank';
-    renderWdMethods();
-    showWdStep(1);
-    document.getElementById('wdModal').hidden = false;
-  };
-
-  const closeWd = () => { document.getElementById('wdModal').hidden = true; };
-  const closeAcc = () => { document.getElementById('accModal').hidden = true; };
-  document.getElementById('wdClose').onclick = closeWd;
-  document.getElementById('accClose').onclick = closeAcc;
-  document.getElementById('wdModal').onclick = (e) => { if (e.target.id === 'wdModal') closeWd(); };
-  document.getElementById('accModal').onclick = (e) => { if (e.target.id === 'accModal') closeAcc(); };
-  document.getElementById('wdBack').onclick = () => showWdStep(1);
-  document.getElementById('wdNext').onclick = () => {
-    const m = WD.selected;
-    if (!m || !WD.accounts[m]) return toast(`กรุณากด "Edit" เพื่อกรอกข้อมูล${m ? WD.methods[m].label : 'ช่องทางรับเงิน'}ก่อน`, false);
-    renderWdReview();
-    showWdStep(2);
-  };
-  document.getElementById('wdConfirm').onclick = submitWithdraw;
-  document.getElementById('accSave').onclick = saveAccount;
-}
-
-function showWdStep(n) {
-  document.getElementById('wdStep1').hidden = n !== 1;
-  document.getElementById('wdStep2').hidden = n !== 2;
-}
-
-function renderWdMethods() {
-  const box = document.getElementById('wdMethods');
-  box.innerHTML = '';
-  Object.entries(WD.methods).forEach(([key, m]) => {
-    const acc = WD.accounts[key];
-    const row = el('label', { class: 'wd-method' + (WD.selected === key ? ' on' : '') });
-    const radio = el('input', { type: 'radio', name: 'wdMethod', value: key });
-    radio.checked = WD.selected === key;
-    radio.onchange = () => { WD.selected = key; renderWdMethods(); };
-    const edit = el('button', { type: 'button', class: 'wd-edit' }, 'Edit');
-    edit.onclick = (e) => { e.preventDefault(); openAccModal(key); };
-    row.append(radio, el('span', { class: 'wd-mtxt' },
-      el('span', { class: 'wd-mname' }, m.label.toUpperCase(), edit),
-      el('span', { class: 'wd-mhint' + (acc ? ' filled' : '') }, acc ? wdSummary(key, acc) : 'คลิก "Edit" เพื่อกรอกข้อมูล')));
-    box.append(row);
-  });
-}
-
-function renderWdReview() {
-  const m = WD.selected, a = WD.accounts[m], meta = WD.methods[m];
-  const rows = [
-    ['จำนวนเงินที่ถอน', `<b class="wd-big">${money(WD.amount)}</b>`],
-    ['ถอนไปยัง', esc(meta.label)],
-    ...(m === 'bank' ? [['ธนาคาร', esc(a.bank)]] : []),
-    [meta.numberLabel, `<b>${esc(a.number)}</b>`],
-    ['ชื่อผู้รับ', `<b>${esc(a.first_name + ' ' + a.last_name)}</b>`],
-    ['รายได้คงเหลือหลังถอน', money((ME.earnings_balance || 0) - WD.amount)],
-  ];
-  document.getElementById('wdReview').innerHTML = rows.map(([k, v]) => `<div><span>${k}</span><span>${v}</span></div>`).join('');
-}
-
-function openAccModal(method) {
-  const m = WD.methods[method], a = WD.accounts[method] || {};
-  WD.editing = method;
-  document.getElementById('accTitle').textContent = 'ข้อมูลรับเงิน: ' + m.label;
-  document.getElementById('accBankRow').hidden = method !== 'bank';
-  document.getElementById('accBank').value = a.bank || '';
-  document.getElementById('accNumLabel').textContent = m.numberLabel;
-  document.getElementById('accNumber').value = a.number || '';
-  document.getElementById('accNumber').placeholder = m.numberLabel;
-  document.getElementById('accNumHint').textContent = WD_HINT[method] || '';
-  document.getElementById('accFirst').value = a.first_name || '';
-  document.getElementById('accLast').value = a.last_name || '';
-  document.getElementById('accModal').hidden = false;
-}
-
-async function saveAccount() {
-  const method = WD.editing;
-  const btn = document.getElementById('accSave');
-  btn.disabled = true;
-  try {
-    const r = await api('/api/streamer/payout-accounts/' + method, {
-      method: 'PUT',
-      body: {
-        bank: document.getElementById('accBank').value,
-        number: document.getElementById('accNumber').value,
-        first_name: document.getElementById('accFirst').value,
-        last_name: document.getElementById('accLast').value,
-      },
-    });
-    WD.accounts = r.accounts;
-    WD.selected = method;
-    renderWdMethods();
-    document.getElementById('accModal').hidden = true;
-    toast('บันทึกข้อมูลรับเงินแล้ว');
-  } catch (e) { toast(e.message, false); }
-  btn.disabled = false;
-}
-
-async function submitWithdraw() {
-  const btn = document.getElementById('wdConfirm');
-  btn.disabled = true;
-  try {
-    await api('/api/streamer/payout', { method: 'POST', body: { amount: WD.amount, method: WD.selected } });
-    document.getElementById('wdModal').hidden = true;
-    document.getElementById('pAmount').value = '';
-    playUiSound('success');
-    if (window.Swal) Swal.fire({ icon: 'success', title: 'ส่งคำขอถอนเงินแล้ว', html: `ถอน <b>${money(WD.amount)}</b> ไปยัง ${esc(WD.methods[WD.selected].label)}<br>สถานะ: รอดำเนินการ — ทีมงานจะโอนให้ภายในเวลาทำการ`, confirmButtonText: 'ตกลง' });
-    else toast('ส่งคำขอถอนเงินแล้ว');
-    refreshBalance();
-    loadStreamerHist();
-  } catch (e) { toast(e.message, false); }
-  btn.disabled = false;
 }
 
 // ---------- สถิติ / อันดับผู้โดเนท ----------

@@ -37,8 +37,6 @@ function publicUser(u) {
     email: u.email,
     role: u.role,
     display_name: u.display_name,
-    token_balance: u.token_balance,
-    earnings_balance: u.earnings_balance,
     overlay_key: u.overlay_key,
     email_verified: !!u.email_verified,
     banned: !!u.banned,

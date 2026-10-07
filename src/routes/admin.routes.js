@@ -2,10 +2,10 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const { db, setConfigValue } = require('../db');
 const { requireAuth, requireRole } = require('../auth');
-const ledger = require('../ledger');
 const { now, clean, token } = require('../util');
 const slips = require('../slips');
 const notify = require('../notify');
+const planOrders = require('../planOrders');
 
 const router = express.Router();
 router.use(requireAuth, requireRole('admin'));
@@ -17,9 +17,10 @@ router.get('/stats', (req, res) => {
   const users = db.prepare('SELECT role, COUNT(*) c FROM users GROUP BY role').all();
   const donations = db.prepare('SELECT COUNT(*) c, COALESCE(SUM(total_cost),0) v, COALESCE(SUM(platform_fee),0) fee FROM donations').get();
   const donToday = db.prepare('SELECT COUNT(*) c, COALESCE(SUM(total_cost),0) v FROM donations WHERE created_at >= ?').get(today);
-  const tp = db.prepare("SELECT COALESCE(SUM(amount_baht),0) v FROM topups WHERE status = 'paid'").get();
-  const tpToday = db.prepare("SELECT COALESCE(SUM(amount_baht),0) v FROM topups WHERE status = 'paid' AND paid_at >= ?").get(today);
-  const pend = db.prepare("SELECT COUNT(*) c, COALESCE(SUM(amount),0) v FROM payouts WHERE status = 'pending'").get();
+  // รายได้เว็บ = ค่าแพลนที่ชำระแล้ว (โดเนทโอนตรงเข้าบัญชีสตรีมเมอร์ ไม่ผ่านเว็บ)
+  const planRev = db.prepare("SELECT COUNT(*) c, COALESCE(SUM(price),0) v FROM plan_orders WHERE status = 'paid'").get();
+  const planToday = db.prepare("SELECT COALESCE(SUM(price),0) v FROM plan_orders WHERE status = 'paid' AND paid_at >= ?").get(today);
+  const planReview = db.prepare("SELECT COUNT(*) c FROM plan_orders WHERE status = 'review'").get();
   const newUsers = db.prepare('SELECT COUNT(*) c FROM users WHERE created_at >= ?').get(today - 6 * DAY);
   // ยอดโดเนทรายวัน 14 วันล่าสุด (รวมวันนี้) สำหรับกราฟในหน้าภาพรวม
   const from = today - 13 * DAY;
@@ -30,9 +31,8 @@ router.get('/stats', (req, res) => {
     if (series[i]) { series[i].v += r.total_cost; series[i].c += 1; }
   });
   res.json({
-    users, donations, topup_total: tp.v, pending_payouts: pend.c,
-    pending_payout_amount: pend.v, platform_fee_total: donations.fee,
-    today: { donations: donToday.c, donation_value: donToday.v, topup: tpToday.v },
+    users, donations, plan_revenue: planRev.v, plan_orders_paid: planRev.c, plan_review: planReview.c,
+    today: { donations: donToday.c, donation_value: donToday.v, plan_revenue: planToday.v },
     new_users_7d: newUsers.c, series,
   });
 });
@@ -41,7 +41,7 @@ router.get('/stats', (req, res) => {
 router.get('/users', (req, res) => {
   const q = '%' + String(req.query.q || '').toLowerCase() + '%';
   res.json(db.prepare(`SELECT id, username, email, role, display_name, avatar_url, email_verified,
-      token_balance, earnings_balance, overlay_key, banned, created_at
+      overlay_key, banned, created_at, plan_expires_at
     FROM users
     WHERE lower(username) LIKE ? OR lower(IFNULL(email,'')) LIKE ?
     ORDER BY id DESC LIMIT 200`).all(q, q));
@@ -64,18 +64,6 @@ router.patch('/users/:id', (req, res) => {
   db.prepare('UPDATE users SET role=?, banned=?, email_verified=?, display_name=?, overlay_key=? WHERE id=?')
     .run(role, banned, email_verified, display_name, overlay_key, u.id);
   res.json({ ok: true });
-});
-
-router.post('/users/:id/adjust', (req, res) => {
-  const u = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id);
-  if (!u) return res.status(404).json({ error: 'ไม่พบผู้ใช้' });
-  const field = ['token_balance', 'earnings_balance'].includes(req.body.field) ? req.body.field : null;
-  const delta = Math.floor(Number(req.body.delta));
-  if (!field || !Number.isFinite(delta)) return res.status(400).json({ error: 'ข้อมูลไม่ถูกต้อง' });
-
-  const note = clean(req.body.note || 'ปรับยอดโดยแอดมิน', 100);
-  const balance = db.transaction(() => ledger.credit(u.id, field, delta, 'admin_adjust', 'admin', req.user.id, note))();
-  res.json({ ok: true, balance });
 });
 
 router.post('/users/:id/reset-password', (req, res) => {
@@ -130,10 +118,7 @@ router.get('/config', (req, res) => {
 });
 
 router.put('/config', (req, res) => {
-  const allowed = ['site_name', 'platform_fee_percent', 'default_min_donation', 'default_max_donation', 'topup_packages'];
-  if (req.body.topup_packages !== undefined) {
-    try { JSON.parse(req.body.topup_packages); } catch { return res.status(400).json({ error: 'topup_packages ต้องเป็น JSON array' }); }
-  }
+  const allowed = ['site_name', 'default_min_donation', 'default_max_donation'];
   for (const k of allowed) if (req.body[k] !== undefined) setConfigValue(k, req.body[k]);
   res.json({ ok: true });
 });
@@ -147,60 +132,41 @@ router.get('/donations', (req, res) => {
     ORDER BY d.id DESC LIMIT 200`).all());
 });
 
-router.get('/topups', (req, res) => {
-  res.json(db.prepare(`SELECT t.*, u.username FROM topups t JOIN users u ON u.id = t.user_id
-    ORDER BY t.id DESC LIMIT 200`).all());
+// ---------- ชำระค่าแพลน (QR พร้อมเพย์ของเว็บ) ----------
+router.get('/plan-orders', (req, res) => {
+  // รายการรอตรวจสลิปขึ้นก่อนเสมอ (ไม่หลุดไปนอก 200 รายการล่าสุด)
+  res.json(db.prepare(`SELECT o.id, o.user_id, o.reference, o.plan_id, o.plan_label, o.price, o.status, o.created_at,
+      o.paid_at, o.expires_at, o.trans_ref, o.note, o.reviewed_at, o.slip_file IS NOT NULL AS has_slip, u.username
+    FROM plan_orders o JOIN users u ON u.id = o.user_id
+    ORDER BY (o.status = 'review') DESC, o.id DESC LIMIT 200`).all());
 });
 
-router.get('/payouts', (req, res) => {
-  res.json(db.prepare(`SELECT p.*, u.username FROM payouts p JOIN users u ON u.id = p.user_id
-    ORDER BY p.id DESC LIMIT 200`).all());
-});
-
-// จ่ายแล้ว (แนบสลิปการโอนได้) / ปฏิเสธ (คืนยอดเข้ารายได้ + ระบุเหตุผล) — แจ้งเตือนเจ้าของคำขอ
-router.post('/payouts/:id/process', (req, res) => {
-  const p = db.prepare('SELECT * FROM payouts WHERE id = ?').get(req.params.id);
-  if (!p) return res.status(404).json({ error: 'ไม่พบรายการ' });
-  if (p.status !== 'pending') return res.status(400).json({ error: 'รายการนี้ถูกดำเนินการแล้ว' });
-  const status = ['paid', 'rejected'].includes(req.body.status) ? req.body.status : 'paid';
+// ตรวจสลิปค่าแพลนเอง: อนุมัติ (ต่ออายุแพลน) / ปฏิเสธ (ระบุเหตุผล) — รับได้ทั้งรายการที่มีสลิปรอตรวจ และรายการรอจ่าย
+// (กรณีผู้ใช้โอนแล้วแต่ส่งสลิปทางช่องทางอื่น เช่น ติดต่อแอดมิน)
+router.post('/plan-orders/:id/process', (req, res) => {
+  const o = db.prepare('SELECT * FROM plan_orders WHERE id = ?').get(req.params.id);
+  if (!o) return res.status(404).json({ error: 'ไม่พบรายการ' });
+  if (!['pending', 'review'].includes(o.status)) return res.status(400).json({ error: 'รายการนี้ถูกดำเนินการแล้ว' });
+  const status = req.body.status === 'rejected' ? 'rejected' : 'paid';
   const note = clean(req.body.note || '', 200);
   if (status === 'rejected' && !note) return res.status(400).json({ error: 'กรุณาระบุเหตุผลที่ปฏิเสธ' });
 
-  let slipFile = null;
-  if (status === 'paid' && req.body.slip) {
-    const r = slips.saveSlip(p.id, req.body.slip);
-    if (r.error) return res.status(400).json({ error: r.error });
-    slipFile = r.file;
+  let updated;
+  if (status === 'paid') {
+    updated = planOrders.markPaid(o.id, { note: note || `อนุมัติโดย @${req.user.username}` });
+  } else {
+    const r = db.prepare(`UPDATE plan_orders SET status = 'rejected', note = ? WHERE id = ? AND status IN ('pending', 'review')`).run(note, o.id);
+    updated = r.changes ? db.prepare('SELECT * FROM plan_orders WHERE id = ?').get(o.id) : null;
   }
-
-  db.transaction(() => {
-    db.prepare('UPDATE payouts SET status=?, processed_at=?, note=?, slip_file=? WHERE id=?')
-      .run(status, now(), note, slipFile, p.id);
-    if (status === 'rejected') {
-      ledger.credit(p.user_id, 'earnings_balance', p.amount, 'withdraw_refund', 'payout', p.id, 'คืนยอดคำขอถอนที่ถูกปฏิเสธ');
-    }
-  })();
-  notify.payoutProcessed(p, status, note);
-  req.app.get('io').to('user:' + p.user_id).emit('payout:updated', { id: p.id, status });
+  if (!updated) return res.status(409).json({ error: 'รายการนี้ถูกดำเนินการไปแล้ว' });
+  db.prepare('UPDATE plan_orders SET reviewed_at = ? WHERE id = ?').run(now(), o.id);
+  notify.planOrderProcessed(updated, status, note);
   res.json({ ok: true });
 });
 
-// แนบ/เปลี่ยนสลิปให้รายการที่จ่ายไปแล้ว (เช่น ลืมแนบตอนกดจ่าย)
-router.post('/payouts/:id/slip', (req, res) => {
-  const p = db.prepare('SELECT * FROM payouts WHERE id = ?').get(req.params.id);
-  if (!p) return res.status(404).json({ error: 'ไม่พบรายการ' });
-  if (p.status !== 'paid') return res.status(400).json({ error: 'แนบสลิปได้เฉพาะรายการที่จ่ายแล้ว' });
-  const r = slips.saveSlip(p.id, req.body.slip);
-  if (r.error) return res.status(400).json({ error: r.error });
-  db.prepare('UPDATE payouts SET slip_file = ? WHERE id = ?').run(r.file, p.id);
-  slips.removeSlip(p.slip_file);
-  req.app.get('io').to('user:' + p.user_id).emit('payout:updated', { id: p.id, status: p.status });
-  res.json({ ok: true });
-});
-
-router.get('/payouts/:id/slip', (req, res) => {
-  const p = db.prepare('SELECT slip_file FROM payouts WHERE id = ?').get(req.params.id);
-  slips.sendSlip(res, p && p.slip_file);
+router.get('/plan-orders/:id/slip', (req, res) => {
+  const o = db.prepare('SELECT slip_file FROM plan_orders WHERE id = ?').get(req.params.id);
+  slips.sendSlip(res, o && o.slip_file);
 });
 
 module.exports = router;

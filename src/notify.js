@@ -66,13 +66,32 @@ function clearAll(userId) {
   db.prepare('UPDATE notifications SET hidden = 1, read_at = COALESCE(read_at, ?) WHERE user_id = ? AND dedupe_key IS NOT NULL').run(now(), userId);
 }
 
-function payoutProcessed(p, status, note) {
-  const amount = Number(p.amount).toLocaleString('th-TH');
-  if (status === 'paid') {
-    add(p.user_id, { type: 'payout', title: `โอนเงินถอนรายได้ ${amount} บาทแล้ว`, body: note || 'กดเพื่อดูสลิปการโอนเงิน', link: '/dashboard.html#withdrawals' });
-  } else {
-    add(p.user_id, { type: 'payout', title: `คำขอถอน ${amount} บาทถูกปฏิเสธ (คืนยอดเข้ารายได้แล้ว)`, body: note || '', link: '/dashboard.html#withdrawals' });
-  }
+// สลิปค่าแพลนที่ตรวจอัตโนมัติไม่ผ่าน → แจ้งแอดมินทุกคนให้ตรวจเอง
+function planOrderNeedsReview(o, username, reason) {
+  const admins = db.prepare("SELECT id FROM users WHERE role = 'admin' AND banned = 0").all();
+  admins.forEach((a) => add(a.id, {
+    type: 'plan', title: `สลิปค่าแพลน ${o.plan_label} (${Number(o.price).toLocaleString('th-TH')} บาท) รอตรวจ (@${username})`,
+    body: reason || '', link: '/admin.html#planorders',
+  }));
+  if (io) admins.forEach((a) => io.to('user:' + a.id).emit('planorder:review', { id: o.id }));
 }
 
-module.exports = { setIo, add, donationReceived, payoutProcessed, list, markRead, clearAll };
+function planOrderProcessed(o, status, note) {
+  if (status === 'paid') {
+    add(o.user_id, { type: 'plan', title: `ชำระค่าแพลน ${o.plan_label} สำเร็จ`, body: 'ต่ออายุแพลนเรียบร้อยแล้ว', link: '/plans.html' });
+  } else {
+    add(o.user_id, { type: 'plan', title: `การชำระค่าแพลน ${o.plan_label} ไม่ผ่านการตรวจสอบ`, body: note || '', link: '/plans.html' });
+  }
+  if (io) io.to('user:' + o.user_id).emit('planorder:updated', { reference: o.reference, status });
+}
+
+// สลิปโดเนทผ่าน QR ที่ตรวจอัตโนมัติไม่ผ่าน → สตรีมเมอร์เช็คยอดในแอปธนาคารแล้วกดยืนยันเอง
+function qrDonationNeedsReview(it, reason) {
+  const amount = Number(it.amount).toLocaleString('th-TH');
+  add(it.streamer_user_id, {
+    type: 'donation', title: `สลิปโดเนท ${amount} บาทจาก ${it.display_name} รอคุณตรวจสอบ`, body: reason || '', link: '/dashboard.html#settings',
+  });
+  if (io) io.to('user:' + it.streamer_user_id).emit('qrdonation:review', { id: it.id });
+}
+
+module.exports = { setIo, add, donationReceived, planOrderNeedsReview, planOrderProcessed, qrDonationNeedsReview, list, markRead, clearAll };

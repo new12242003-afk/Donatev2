@@ -22,7 +22,7 @@ const BASE_URL = process.env.BASE_URL || 'http://localhost:' + (process.env.PORT
 const limiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 60, standardHeaders: true, legacyHeaders: false });
 
 const VERIFY_TTL = 24 * 3600 * 1000;
-const CODE_TTL = 10 * 60 * 1000;
+const CODE_TTL = 5 * 60 * 1000;
 const CODE_RESEND_MS = 60 * 1000;
 const CODE_MAX_ATTEMPTS = 5;
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
@@ -74,6 +74,23 @@ router.post('/register/send-code', limiter, (req, res) => {
   return issueCode(res, email, email, 'register');
 });
 
+// ยืนยัน OTP ทันทีที่กรอก (ก่อนกดสมัคร) — ถูกแล้วจำไว้ใน session ว่าเบราว์เซอร์นี้ยืนยันอีเมลนี้แล้ว 30 นาที
+const REG_VERIFIED_TTL = 30 * 60 * 1000;
+router.post('/register/verify-code', limiter, (req, res) => {
+  const email = String(req.body.email || '').trim().toLowerCase();
+  if (!EMAIL_RE.test(email)) return res.status(400).json({ error: 'รูปแบบอีเมลไม่ถูกต้อง' });
+  const codeErr = checkCode(email, req.body.code);
+  if (codeErr) return res.status(400).json({ error: codeErr });
+  db.prepare('DELETE FROM email_codes WHERE email = ?').run(email);
+  req.session.regVerified = { email, at: now() };
+  res.json({ ok: true, email });
+});
+
+function regVerifiedEmail(req) {
+  const v = req.session && req.session.regVerified;
+  return v && now() - v.at < REG_VERIFIED_TTL ? v.email : null;
+}
+
 // ---------- ลืมรหัสผ่าน: ส่งรหัสไปที่อีเมลของบัญชี → ใส่รหัส + รหัสผ่านใหม่ ----------
 router.post('/forgot/send-code', limiter, (req, res) => {
   const email = String(req.body.email || '').trim().toLowerCase();
@@ -110,8 +127,12 @@ router.post('/register', limiter, (req, res) => {
   if (String(password || '').length < 6) return res.status(400).json({ error: 'รหัสผ่านอย่างน้อย 6 ตัวอักษร' });
   if (db.prepare('SELECT 1 FROM users WHERE username = ?').get(username)) return res.status(409).json({ error: 'มีชื่อผู้ใช้นี้แล้ว' });
   if (db.prepare('SELECT 1 FROM users WHERE email = ?').get(email)) return res.status(409).json({ error: 'อีเมลนี้ถูกใช้แล้ว' });
-  const codeErr = checkCode(email, req.body.code);
-  if (codeErr) return res.status(400).json({ error: codeErr, field: 'code' });
+  // ต้องยืนยัน OTP ของอีเมลนี้แล้ว (กด "ยืนยัน OTP" มาก่อน) หรือส่งรหัสที่ถูกต้องมาพร้อมกัน
+  if (regVerifiedEmail(req) !== email) {
+    if (!req.body.code) return res.status(400).json({ error: 'กรุณายืนยันอีเมลด้วยรหัส OTP ก่อน', field: 'code' });
+    const codeErr = checkCode(email, req.body.code);
+    if (codeErr) return res.status(400).json({ error: codeErr, field: 'code' });
+  }
 
   // รหัสถูกต้อง = ยืนยันอีเมลแล้ว ไม่ต้องคลิกลิงก์อีก
   const info = db.prepare(`INSERT INTO users
@@ -120,6 +141,7 @@ router.post('/register', limiter, (req, res) => {
     username, email, bcrypt.hashSync(password, 10), role, clean(display_name || username, 40),
     role === 'streamer' ? token(20) : null, now());
   db.prepare('DELETE FROM email_codes WHERE email = ?').run(email);
+  delete req.session.regVerified;
 
   if (role === 'streamer') {
     db.prepare('INSERT OR IGNORE INTO streamer_settings (user_id, updated_at) VALUES (?, ?)').run(info.lastInsertRowid, now());

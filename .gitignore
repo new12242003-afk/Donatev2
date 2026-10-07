@@ -7,3 +7,9 @@ public/uploads/
 data.db-shm
 data.db-wal
 *.log
+
+# รูปต้นฉบับ/ภาพหน้าจอที่วางไว้ในโฟลเดอร์หลัก (ไม่ใช่ไฟล์ของเว็บ — รูปที่ใช้จริงอยู่ใน public/img/)
+/*.png
+/*.jpg
+/*.jpeg
+/*.webp

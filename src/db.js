@@ -245,7 +245,72 @@ function ensureColumn(table, col, decl) {
   ['cover_url', 'TEXT'],
   // บัญชีรับเงินสำหรับถอนรายได้ แยกตามช่องทาง (src/payoutAccounts.js)
   ['payout_accounts', 'TEXT'],
+  // QR พร้อมเพย์รับโดเนทของสตรีมเมอร์ (src/promptpay.js): tag/value = ช่องผู้รับในแท็ก 29 ของ QR,
+  // name = ชื่อบัญชีที่แสดงใต้ QR, bank_account = เลขบัญชีที่ผูกพร้อมเพย์ (ช่วยตรวจสลิปอัตโนมัติ)
+  ['promptpay_tag', 'TEXT'],
+  ['promptpay_value', 'TEXT'],
+  ['promptpay_name', 'TEXT'],
+  ['promptpay_bank_account', 'TEXT'],
 ].forEach(([col, decl]) => ensureColumn('users', col, decl));
+
+// โดเนทผ่าน QR พร้อมเพย์ของสตรีมเมอร์ (src/qrDonations.js): ผู้ชมโอนตรงเข้าบัญชีสตรีมเมอร์แล้วอัปโหลดสลิป
+// pending → (review) → completed (สร้างแถวใน donations + เด้งแจ้งเตือน) / rejected
+// ยังไม่จ่าย/รอตรวจเก็บแยกไว้ตรงนี้ ไม่ปนกับ donations ที่สถิติและรายการทั้งหมดถือว่าเงินเข้าแล้ว
+db.exec(`
+CREATE TABLE IF NOT EXISTS donation_intents (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  reference TEXT UNIQUE NOT NULL,
+  pay_token TEXT NOT NULL,
+  streamer_user_id INTEGER NOT NULL REFERENCES users(id),
+  donor_user_id INTEGER REFERENCES users(id),
+  amount INTEGER NOT NULL,
+  display_name TEXT NOT NULL,
+  message TEXT,
+  sticker_code TEXT,
+  sticker_only INTEGER NOT NULL DEFAULT 0,
+  voice_url TEXT,
+  audio_url TEXT,
+  hide_email INTEGER NOT NULL DEFAULT 0,
+  promptpay_tag TEXT NOT NULL,
+  promptpay_value TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending',
+  slip_file TEXT,
+  trans_ref TEXT UNIQUE,
+  note TEXT,
+  donation_id INTEGER REFERENCES donations(id),
+  created_at INTEGER NOT NULL,
+  expires_at INTEGER NOT NULL,
+  completed_at INTEGER
+);
+CREATE INDEX IF NOT EXISTS idx_intents_streamer ON donation_intents(streamer_user_id, status);
+`);
+
+// ชำระค่าแพลนด้วย QR พร้อมเพย์ของเว็บ (src/planOrders.js) — แทนการเติม Token แล้วหักซื้อแพลน
+// ตาราง topups / payouts / transactions เดิมเก็บไว้เป็นประวัติ ไม่มีโค้ดเขียนเพิ่มแล้ว
+db.exec(`
+CREATE TABLE IF NOT EXISTS plan_orders (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  reference TEXT UNIQUE NOT NULL,
+  user_id INTEGER NOT NULL REFERENCES users(id),
+  plan_id TEXT NOT NULL,
+  plan_label TEXT NOT NULL,
+  price INTEGER NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending',
+  slip_file TEXT,
+  trans_ref TEXT UNIQUE,
+  note TEXT,
+  created_at INTEGER NOT NULL,
+  expires_at INTEGER NOT NULL,
+  paid_at INTEGER,
+  reviewed_at INTEGER
+);
+CREATE INDEX IF NOT EXISTS idx_plan_orders_user ON plan_orders(user_id, id);
+`);
+// บัญชีพร้อมเพย์ที่ใช้ตอนสร้างคำสั่งซื้อ (แอดมินเปลี่ยน QR ระหว่างทาง ก็ยังตรวจสลิปกับบัญชีที่ผู้ซื้อโอนจริง)
+[
+  ['promptpay_tag', 'TEXT'],
+  ['promptpay_value', 'TEXT'],
+].forEach(([col, decl]) => ensureColumn('plan_orders', col, decl));
 
 // วันหมดอายุของแพลนที่ซื้อ (src/plans.js) — ตอนเพิ่มคอลัมน์ครั้งแรก ให้บัญชีที่มีอยู่แล้วได้ทดลองฟรี 21 วันนับจากวันนี้
 // (ไม่อย่างนั้นบัญชีเก่าที่สมัครเกิน 21 วันจะหมดอายุทันทีที่อัปเดตระบบ)
@@ -276,13 +341,25 @@ if (!raw.prepare('PRAGMA table_info(users)').all().some((c) => c.name === 'plan_
   // เสียงอ่านข้อความ: 'browser' = เสียงในเครื่องที่รัน OBS, 'ai' = Google Cloud TTS (src/tts.js)
   ['tts_engine', "TEXT NOT NULL DEFAULT 'browser'"],
   ['tts_ai_voice', "TEXT NOT NULL DEFAULT 'th-TH-Chirp3-HD-Kore'"],
+  // สตรีมเมอร์ปิดรับโดเนทชั่วคราว / ไม่ให้ผู้ชมส่งสติกเกอร์ — เปิดเป็นค่าเริ่มต้น
+  ['donations_enabled', 'INTEGER NOT NULL DEFAULT 1'],
+  ['stickers_enabled', 'INTEGER NOT NULL DEFAULT 1'],
+  // ขนาดรูป/GIF เหนือแจ้งเตือนบน Overlay: small / medium / large
+  ['gif_size', "TEXT NOT NULL DEFAULT 'large'"],
 ].forEach(([col, decl]) => ensureColumn('streamer_settings', col, decl));
 
 // PromptPay: วันหมดอายุของ QR และรหัสลับของลิงก์จ่ายเงิน (จำลอง) ที่อยู่ใน QR
+// PromptPay จริง: สลิปที่ผู้ใช้อัปโหลด, เลขอ้างอิงธุรกรรมจากธนาคาร (กันใช้สลิปซ้ำ), หมายเหตุผลตรวจ/เหตุผลที่ปฏิเสธ
 [
   ['expires_at', 'INTEGER'],
   ['pay_token', 'TEXT'],
+  ['slip_file', 'TEXT'],
+  ['trans_ref', 'TEXT'],
+  ['note', 'TEXT'],
+  ['reviewed_at', 'INTEGER'],
 ].forEach(([col, decl]) => ensureColumn('topups', col, decl));
+// สลิป 1 ใบ (1 เลขอ้างอิงธนาคาร) ใช้เติมเงินได้รายการเดียว — NULL ซ้ำกันได้
+db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_topups_trans_ref ON topups(trans_ref)');
 
 [
   ['voice_url', 'TEXT'],

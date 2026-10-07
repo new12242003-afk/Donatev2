@@ -4,6 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>โดเนท · Donate Stream</title>
+  <link rel="icon" href="/img/favicon-64.png" type="image/png">
+  <link rel="apple-touch-icon" href="/img/logo-180.png">
   <link rel="stylesheet" href="/css/app.css">
 </head>
 <body class="dn-page">
@@ -32,6 +34,9 @@
       </div>
 
       <div class="dn-closed" id="dnClosed" hidden>⏸️ สตรีมเมอร์รายนี้ปิดรับโดเนทชั่วคราว</div>
+
+      <!-- โดเนทที่สร้างไว้แต่ยังไม่ได้ส่งสลิป (ปิดหน้าไปก่อน) — กลับมาส่งสลิปต่อได้ -->
+      <div class="dn-pending" id="dnPending" hidden></div>
 
       <form class="dn-form" id="dnForm" novalidate>
         <section class="dn-sec">
@@ -94,7 +99,7 @@
         </section>
 
         <section class="dn-sec">
-          <h3>บัญชีที่ใช้โดเนท</h3>
+          <h3>ผู้โดเนท</h3>
           <div class="dn-account" id="dnAccount"></div>
           <div id="dnHideEmailWrap" hidden>
             <label class="dn-check"><input type="checkbox" id="dnHideEmail"> <span>ซ่อนอีเมลของฉันจาก <b id="dnHideEmailName"></b></span></label>
@@ -114,6 +119,95 @@
     </div>
   </main>
 
+  <!-- เลือกวิธีชำระเงิน (ก่อนสร้าง QR) — ตอนนี้เปิด PromptPay อย่างเดียว ช่องทางอื่นแสดงไว้เป็น "เร็ว ๆ นี้" -->
+  <div class="modal-overlay" id="dnMethodModal" hidden>
+    <div class="tp-pay" role="dialog" aria-modal="true" aria-labelledby="dnMethodTitle">
+      <div class="tp-pay-left">
+        <h2 id="dnMethodTitle">ชำระเงิน</h2>
+        <div class="muted tp-pay-sub">โปรดเลือกวิธีชำระเงิน</div>
+        <div class="tp-methods" id="dnMethods">
+          <button type="button" class="tp-method" data-method="card" disabled>
+            <span class="tp-m-card"><span class="tp-m-cardicon"></span>Credit/Debit Card</span><span class="tp-soon">เร็ว ๆ นี้</span>
+          </button>
+          <button type="button" class="tp-method" data-method="truemoney" disabled>
+            <span class="tp-m-truemoney">true<b>money</b></span><span class="tp-soon">เร็ว ๆ นี้</span>
+          </button>
+          <button type="button" class="tp-method" data-method="paypal" disabled>
+            <span class="tp-m-paypal"><b>Pay</b><i>Pal</i></span><span class="tp-soon">เร็ว ๆ นี้</span>
+          </button>
+          <button type="button" class="tp-method active" data-method="promptpay">
+            <span class="tp-m-promptpay">Prompt<b>Pay</b></span>
+          </button>
+        </div>
+        <hr class="tp-sep">
+        <div class="tp-detail">
+          <div class="tp-detail-note">กด <b>ทำการชำระเงิน</b> เพื่อสร้าง QR PromptPay แล้วสแกนจ่ายผ่านแอปธนาคารหรือแอป TrueMoney
+            — เงินเข้าบัญชีของ <b id="dnMethodTo"></b> โดยตรง จากนั้น <b>อัปโหลดสลิป</b> ระบบตรวจกับธนาคารแล้วขึ้นแจ้งเตือนบนไลฟ์ทันที</div>
+        </div>
+      </div>
+
+      <div class="tp-pay-right">
+        <button class="modal-close" id="dnMethodClose" aria-label="ปิด">✕</button>
+        <div class="tp-sum-title" id="dnSumTitle"></div>
+        <div class="tp-sum">
+          <div class="tp-sum-row muted"><span id="dnSumLabel">ยอดโดเนท</span><span id="dnSumPrice"></span></div>
+          <div class="tp-sum-row muted"><span>ชื่อที่แสดง</span><span id="dnSumFrom"></span></div>
+          <div class="tp-sum-row tp-sum-total"><span>รวมทั้งหมด</span><span id="dnSumTotal"></span></div>
+        </div>
+        <div class="sp"></div>
+        <button class="tp-paybtn" id="dnMethodGo">ทำการชำระเงิน</button>
+        <div class="tp-terms muted">การโดเนทเป็นการให้โดยสมัครใจ ไม่สามารถขอคืนเงินได้</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- โอนเงินโดเนท: QR พร้อมเพย์ของสตรีมเมอร์ (ใส่ยอดไว้แล้ว) → อัปโหลดสลิป → ตรวจแล้วขึ้นแจ้งเตือนบนไลฟ์ -->
+  <div class="modal-overlay pp-overlay" id="dnPayModal" hidden>
+    <div class="pp-page" role="dialog" aria-modal="true" aria-label="โอนเงินโดเนทผ่าน PromptPay">
+      <div class="pp-left">
+        <div class="pp-merchant">
+          <button type="button" class="pp-back" id="dnPayClose" title="ปิด" aria-label="ปิด">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+          </button>
+          <span id="dnPayTo"></span>
+        </div>
+        <div class="pp-label">ยอดโดเนท</div>
+        <div class="pp-total" id="dnPayTotal"></div>
+        <div class="pp-item" id="dnPayItem"></div>
+        <div class="pp-ref">รหัสอ้างอิง <b id="dnPayRef"></b></div>
+      </div>
+
+      <div class="pp-right">
+        <div class="pp-brand"><span class="pp-logo"><span class="tp-m-promptpay">Prompt<b>Pay</b></span></span><span>โอนตรงเข้าบัญชีสตรีมเมอร์</span></div>
+        <div class="pp-expire" id="dnPayExpire"></div>
+        <div class="pp-card">
+          <div class="pp-card-head"><span>ยอดที่ต้องโอน</span><b id="dnPayTotal2"></b></div>
+          <div class="pp-card-body">
+            <div class="pp-qr" id="dnPayQr"></div>
+            <div class="pp-acct" id="dnPayAcct"></div>
+            <a href="#" class="pp-save" id="dnPaySave">⬇ บันทึกรูป QR (สำหรับจ่ายจากมือถือเครื่องนี้)</a>
+            <div class="pp-qr-state" id="dnPayState"></div>
+          </div>
+        </div>
+
+        <div class="pp-slip" id="dnPaySlip">
+          <div class="pp-howto-title">โอนแล้ว? อัปโหลดสลิปเพื่อส่งโดเนทขึ้นไลฟ์</div>
+          <label class="pp-slip-btn" for="dnSlipFile" id="dnSlipBtn">📎 เลือกรูปสลิป</label>
+          <input type="file" id="dnSlipFile" accept="image/png,image/jpeg,image/webp" hidden>
+          <div class="pp-slip-msg" id="dnSlipMsg"></div>
+        </div>
+
+        <div class="pp-howto-title">วิธีโดเนท</div>
+        <ol class="pp-howto">
+          <li>เปิดแอปธนาคาร หรือแอป TrueMoney แล้วสแกน QR (จ่ายจากมือถือเครื่องนี้: กด "บันทึกรูป QR" แล้วเลือกรูปจากอัลบั้มในแอป)</li>
+          <li>ตรวจยอดและชื่อบัญชีให้ตรง แล้วโอนเงิน — <b>อย่าแก้ยอด</b></li>
+          <li>อัปโหลดสลิปด้านบน ระบบตรวจกับธนาคารแล้วขึ้นแจ้งเตือนบนไลฟ์ทันที</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="/js/u.js"></script>
 </body>
 </html>

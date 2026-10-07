@@ -3,6 +3,8 @@
 <head>
   <meta charset="utf-8">
   <title>Donate Overlay · OBS</title>
+  <link rel="icon" href="/img/favicon-64.png" type="image/png">
+  <link rel="apple-touch-icon" href="/img/logo-180.png">
   <style>
     html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; font-family: 'Segoe UI', Tahoma, sans-serif; }
 
@@ -21,13 +23,16 @@
     }
     .alert.show { opacity: 1; transform: translateY(0); }
     .alert.leaving { opacity: 0; transform: translateY(-12px); max-height: 0 !important; margin-bottom: 0; padding-top: 0; padding-bottom: 0; }
-    .alert .title { font-size: 30px; font-weight: 800; color: var(--accent, #ffffff); text-shadow: 0 2px 12px rgba(0, 0, 0, .45); }
-    .alert .msg { font-size: 27px; opacity: .96; margin-top: 8px; word-wrap: break-word; text-shadow: 0 2px 10px rgba(0, 0, 0, .6); }
+    .alert .title { font-size: 38px; line-height: 1.25; font-weight: 800; color: var(--accent, #ffffff); text-shadow: 0 2px 4px rgba(0, 0, 0, .5), 0 4px 16px rgba(0, 0, 0, .5); }
+    .alert .msg { font-size: 30px; line-height: 1.4; opacity: .97; margin-top: 10px; word-wrap: break-word; text-shadow: 0 2px 4px rgba(0, 0, 0, .55), 0 3px 12px rgba(0, 0, 0, .6); }
     .alert .msg:empty { display: none; }
+    /* รูป/GIF เหนือข้อความ — สตรีมเมอร์เลือกขนาดได้ (เล็ก / กลาง / ใหญ่) */
     .alert .gif {
-      display: block; max-width: 220px; max-height: 220px; margin: 0 auto 10px;
-      border-radius: 12px;
+      display: block; width: auto; height: auto; max-width: 220px; max-height: 220px; margin: 0 auto 16px;
+      border-radius: 18px; box-shadow: 0 10px 30px rgba(0, 0, 0, .45); object-fit: contain;
     }
+    .alert .gif.size-medium { max-width: 420px; max-height: 300px; }
+    .alert .gif.size-large { max-width: min(760px, 64vw); max-height: 430px; }
 
     /* ส่งสติกเกอร์: รูปสติกเกอร์ตัวใหญ่บานขึ้นมาเหนือหัวข้อ */
     .alert .big-sticker { display: block; font-size: 96px; line-height: 1; margin: 0 auto 10px; filter: drop-shadow(0 6px 16px rgba(0, 0, 0, .45)); }
@@ -115,7 +120,8 @@
 
       if (s.gif_url) {
         const gif = document.createElement('img');
-        gif.className = 'gif'; gif.alt = ''; gif.src = s.gif_url;
+        gif.className = 'gif size-' + (['small', 'medium', 'large'].includes(s.gif_size) ? s.gif_size : 'large');
+        gif.alt = ''; gif.src = s.gif_url;
         card.append(gif);
       }
       if (d.sticker_only && d.sticker) {
@@ -220,13 +226,14 @@
       loadVoices();
       speechSynthesis.onvoiceschanged = loadVoices;
     }
-    // ประโยคที่อ่านออกเสียง เช่น "test โดเนท 20 aaaaaaa"
+    // ประโยคที่อ่านออกเสียง เช่น "test โดเนท 20 บาท aaaaaaa"
     // ต้องตรงกับ speechText() ใน src/tts.js (เสียง AI)
     function speechText(s, d) {
-      // ลำดับตายตัวทุกกรณี (รวมส่งสติกเกอร์): ชื่อผู้ส่ง → "โดเนท" → จำนวนเงิน → ข้อความ (ไม่อิงรูปแบบหัวข้อบนจอ)
-      const head = `${d.display_name || 'ไม่ระบุชื่อ'} โดเนท ${Number(d.amount).toLocaleString('th-TH')}`;
+      // ลำดับตายตัวทุกกรณี (รวมส่งสติกเกอร์): ชื่อผู้ส่ง → "โดเนท" → จำนวนเงิน + "บาท" → ข้อความ (ไม่อิงรูปแบบหัวข้อบนจอ)
+      const head = `${d.display_name || 'ไม่ระบุชื่อ'} โดเนท ${Number(d.amount).toLocaleString('th-TH')} บาท`;
+      // ฿ ในข้อความอ่านเป็น "บาท" (100฿ / ฿100 → 100 บาท)
+      let msg = String(d.message || '').replace(/฿\s*(\d[\d,.]*)/g, '$1 บาท').replace(/฿/g, ' บาท ');
       // ถ้าปิด "อ่านสัญลักษณ์พิเศษ" ไว้ ให้ตัดสัญลักษณ์ที่มักสร้างปัญหาการอ่านออก (@ ~ # * เป็นต้น) ก่อนส่งให้ TTS
-      let msg = String(d.message || '');
       if (s.tts_read_symbols === false) msg = msg.replace(/[@~#*_^`|\\]/g, '');
       // ส่งสติกเกอร์อย่างเดียวไม่มีข้อความ — อ่านชื่อสติกเกอร์แทน
       if (d.sticker_only && d.sticker && !msg) msg = 'สติกเกอร์ ' + (d.sticker.name || '');

@@ -8,7 +8,7 @@ const notify = require('../notify');
 const router = express.Router();
 router.use(requireAuth);
 
-const CATEGORIES = ['บัญชีผู้ใช้', 'เติมเงิน', 'ถอนเงิน', 'Overlay / OBS', 'แพลน', 'อื่น ๆ'];
+const CATEGORIES = ['บัญชีผู้ใช้', 'แพลน / ชำระเงิน', 'โดเนท / สลิป', 'Overlay / OBS', 'อื่น ๆ'];
 const STATUSES = ['open', 'answered', 'closed'];
 const MAX_BODY = 2000;
 
@@ -115,7 +115,7 @@ admin.get('/:id', (req, res) => {
   const t = getTicket(req.params.id);
   if (!t) return res.status(404).json({ error: 'ไม่พบเรื่องนี้' });
   db.prepare('UPDATE support_tickets SET admin_unread = 0 WHERE id = ?').run(t.id);
-  const u = db.prepare('SELECT email, token_balance, earnings_balance, created_at FROM users WHERE id = ?').get(t.user_id);
+  const u = db.prepare('SELECT email, created_at FROM users WHERE id = ?').get(t.user_id);
   res.json({ ticket: t, user: u, messages: messages(t.id) });
 });
 

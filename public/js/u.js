@@ -1,4 +1,5 @@
-// หน้าโดเนทสาธารณะ /u/:username — ผู้ชมเปิดลิงก์ของสตรีมเมอร์แล้วโดเนทด้วย Token ในบัญชีตัวเอง
+// หน้าโดเนทสาธารณะ /u/:username — ผู้ชมกรอกยอด/ข้อความ → สแกน QR พร้อมเพย์ของสตรีมเมอร์ (ใส่ยอดไว้แล้ว)
+// โอนตรงเข้าบัญชีสตรีมเมอร์ → อัปโหลดสลิป → ตรวจกับธนาคารแล้วขึ้นแจ้งเตือนบนไลฟ์ (ไม่ต้องล็อกอิน)
 const PRESET_AMOUNTS = [10, 20, 50, 100, 500];
 const ANON_NAME = 'ไม่ระบุชื่อ';
 const ST = { me: null, profile: null, cfg: null, voiceClip: null, audioClip: null };
@@ -17,19 +18,36 @@ let recorder = null, recTimer = null;
   if (!data) { document.getElementById('dnNotFound').hidden = false; return; }
   ST.profile = data.profile;
   ST.cfg = data.config;
+  // สตรีมเมอร์ปิดรับสติกเกอร์ → ไม่แสดงส่วนส่งสติกเกอร์เลย
+  if (ST.cfg.stickers_enabled === false) ST.stickers = [];
   renderProfile();
   initForm();
   renderStickers();
-  // แพลนของสตรีมเมอร์หมดอายุ → ปิดฟอร์มโดเนท (เจ้าของหน้าเห็นลิงก์ไปต่ออายุ)
-  if (data.accepting === false) {
+  ST.accountName = data.account_name || '';
+  initPayModal();
+  initMethodModal();
+  // แพลนของสตรีมเมอร์หมดอายุ / ยังไม่ตั้ง QR รับเงิน → ปิดฟอร์มโดเนท (เจ้าของหน้าเห็นลิงก์ไปแก้)
+  const paused = ST.cfg.donations_enabled === false;
+  if (data.accepting === false || !data.qr_ready || paused) {
     const closed = document.getElementById('dnClosed');
-    if (isSelf()) closed.innerHTML = '⏸️ แพลนของคุณหมดอายุ ผู้ชมจึงโดเนทไม่ได้ — <a href="/plans.html">ต่ออายุแพลน</a>';
+    if (paused) {
+      closed.innerHTML = isSelf()
+        ? '⏸️ คุณปิดรับโดเนทอยู่ — <a href="/dashboard.html#overlay">เปิดรับโดเนท</a>'
+        : '⏸️ สตรีมเมอร์ปิดรับโดเนทชั่วคราว';
+    } else if (data.accepting === false) {
+      if (isSelf()) closed.innerHTML = '⏸️ แพลนของคุณหมดอายุ ผู้ชมจึงโดเนทไม่ได้ — <a href="/plans.html">ต่ออายุแพลน</a>';
+    } else {
+      closed.innerHTML = isSelf()
+        ? '⏸️ คุณยังไม่ได้ตั้ง QR รับเงิน ผู้ชมจึงโดเนทไม่ได้ — <a href="/dashboard.html#settings">ตั้งค่า QR รับเงิน</a>'
+        : '⏸️ สตรีมเมอร์รายนี้ยังไม่เปิดรับโดเนท';
+    }
     closed.hidden = false;
     const form = document.getElementById('dnForm');
     form.inert = true;
     form.style.opacity = '.5';
   }
   document.getElementById('dnMain').hidden = false;
+  checkPendingIntent();
   // นับยอดเข้าชมหน้าโดเนท (สถิติ "การวิเคราะห์" ของสตรีมเมอร์) — ไม่นับตอนเจ้าของเปิดดูหน้าตัวเอง
   if (!isSelf()) api('/api/public/streamer-view', { method: 'POST', body: { username: ST.profile.username } }).catch(() => {});
 })();
@@ -59,7 +77,7 @@ function initForm() {
   const amountInput = document.getElementById('dnAmount');
   amountInput.min = min; amountInput.max = max;
   document.getElementById('dnAmountHelp').textContent =
-    `โดเนทได้ตั้งแต่ THB${fmt(min)} ถึง THB${fmt(max)} ต่อครั้ง · ใช้ Token จากบัญชีของคุณ (1 Token = 1 บาท)`;
+    `โดเนทได้ตั้งแต่ THB${fmt(min)} ถึง THB${fmt(max)} ต่อครั้ง · จ่ายด้วย QR พร้อมเพย์ เงินเข้าบัญชีสตรีมเมอร์โดยตรง`;
 
   // ปุ่มยอดสำเร็จรูป — แสดงเฉพาะยอดที่อยู่ในช่วงที่สตรีมเมอร์รับ ถ้าไม่มีเลยใช้ยอดขั้นต่ำแทน
   let presets = PRESET_AMOUNTS.filter((v) => v >= min && v <= max);
@@ -116,20 +134,20 @@ function renderAccount() {
   const btn = document.getElementById('dnSubmit');
   box.innerHTML = '';
   if (!ST.me) {
-    box.append(el('span', {}, 'เข้าสู่ระบบก่อน เพื่อโดเนทด้วย Token ในบัญชีของคุณ'));
-    btn.textContent = 'เข้าสู่ระบบเพื่อโดเนท →';
-    return;
+    // ไม่ต้องล็อกอินก็โดเนทได้ — ล็อกอินแล้วได้ประวัติการโดเนทในแดชบอร์ด
+    box.append(
+      el('span', {}, 'โดเนทได้เลยโดยไม่ต้องเข้าสู่ระบบ ·'),
+      el('a', { href: '/login.html?next=' + encodeURIComponent(location.pathname) }, 'เข้าสู่ระบบ'),
+      el('span', { class: 'muted' }, 'เพื่อเก็บประวัติการโดเนท'));
+  } else {
+    document.getElementById('dnHideEmailWrap').hidden = isSelf();
+    box.append(el('span', {}, '@' + ST.me.username));
   }
-  document.getElementById('dnHideEmailWrap').hidden = isSelf();
-  box.append(
-    el('span', {}, '@' + ST.me.username),
-    el('span', { class: 'dn-bal', html: 'ยอด ' + tkAmount(ST.me.token_balance) }),
-    el('a', { href: '/topup.html' }, 'เติมเงิน'));
   if (isSelf()) {
     btn.textContent = 'นี่คือหน้าโดเนทของคุณ';
     btn.disabled = true;
   } else if (ST.selectedSticker) {
-    btn.textContent = `ส่งสติกเกอร์ ${ST.selectedSticker.name} ${ST.selectedSticker.emoji || ''} →`;
+    btn.textContent = `ส่งสติกเกอร์ ${ST.selectedSticker.name} ${ST.selectedSticker.emoji || ''} · ฿${fmt(ST.selectedSticker.cost)} →`;
   } else {
     btn.textContent = 'ส่งโดเนท →';
   }
@@ -274,87 +292,236 @@ function validate(checkAmount = true) {
   return ok;
 }
 
-async function submit() {
-  if (!ST.me) {
-    location.href = '/login.html?next=' + encodeURIComponent(location.pathname);
-    return;
-  }
-  if (ST.selectedSticker) return sendSticker(ST.selectedSticker);
-  if (isSelf() || !validate()) return;
-  if (!ST.me.email_verified) return toast('กรุณายืนยันอีเมลก่อนโดเนท', false);
-
-  const amount = amountValue();
+function submit() {
+  if (isSelf()) return;
+  const sticker = ST.selectedSticker;
+  if (!validate(!sticker)) return;
+  const amount = sticker ? sticker.cost : amountValue();
+  const display_name = document.getElementById('dnFrom').value.trim();
   const body = {
     streamer: ST.profile.username,
-    amount,
-    display_name: document.getElementById('dnFrom').value.trim(),
-    message: document.getElementById('dnMsg').value,
+    display_name,
     hide_email: document.getElementById('dnHideEmail').checked,
   };
-  if (ST.voiceClip) body.voice_clip = ST.voiceClip;
-  if (ST.audioClip) body.audio_clip = ST.audioClip;
+  if (sticker) body.sticker_code = sticker.code;
+  else {
+    body.amount = amount;
+    body.message = document.getElementById('dnMsg').value;
+    if (ST.voiceClip) body.voice_clip = ST.voiceClip;
+    if (ST.audioClip) body.audio_clip = ST.audioClip;
+  }
+  openMethodModal({
+    body, amount, from: display_name,
+    item: sticker ? `สติกเกอร์ ${sticker.name} ${sticker.emoji || ''}`.trim() : `โดเนท ฿${fmt(amount)}`,
+    sticker,
+  });
+}
 
-  const btn = document.getElementById('dnSubmit');
-  if (btn.disabled) return;
-  if (!(await confirmDonation(amount, body.display_name))) return;
-  btn.disabled = true;
-  btn.textContent = 'กำลังส่ง…';
+// ---------- เลือกวิธีชำระเงิน (สรุปยอดก่อนสร้าง QR) ----------
+const METHOD = { order: null, busy: false };
+
+function money(n) {
+  return Number(n).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function initMethodModal() {
+  const modal = document.getElementById('dnMethodModal');
+  const close = () => { if (!METHOD.busy) modal.hidden = true; };
+  document.getElementById('dnMethodClose').onclick = close;
+  modal.onclick = (e) => { if (e.target === modal) close(); };
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !modal.hidden) close(); });
+  document.getElementById('dnMethodGo').onclick = createDonation;
+}
+
+function openMethodModal(order) {
+  METHOD.order = order;
+  document.getElementById('dnMethodTo').textContent = ST.profile.display_name;
+  document.getElementById('dnSumTitle').textContent = order.sticker ? order.item : `โดเนทให้ ${ST.profile.display_name}`;
+  document.getElementById('dnSumLabel').textContent = order.sticker ? 'ราคาสติกเกอร์' : 'ยอดโดเนท';
+  document.getElementById('dnSumPrice').textContent = money(order.amount);
+  document.getElementById('dnSumFrom').textContent = order.from;
+  document.getElementById('dnSumTotal').textContent = '฿' + money(order.amount);
+  setMethodBusy(false);
+  playUiSound('question');
+  document.getElementById('dnMethodModal').hidden = false;
+}
+
+function setMethodBusy(busy) {
+  METHOD.busy = busy;
+  const b = document.getElementById('dnMethodGo');
+  b.disabled = busy;
+  b.textContent = busy ? 'กำลังสร้าง QR…' : 'ทำการชำระเงิน';
+}
+
+async function createDonation() {
+  const o = METHOD.order;
+  if (!o || METHOD.busy) return;
+  setMethodBusy(true);
   try {
-    const r = await api('/api/donate', { method: 'POST', body });
-    ST.me.token_balance = r.balance;
-    document.getElementById('dnMsg').value = '';
-    document.getElementById('dnMsgCount').textContent = '0';
-    clearVoice();
-    clearAudio();
-    updateNavBalance(ST.me.token_balance);
-    playUiSound('success');
-    if (window.Swal) {
-      Swal.fire({ icon: 'success', title: 'โดเนทสำเร็จ! 🎉', text: `ส่ง ${fmt(amount)} บาท ให้ ${ST.profile.display_name} แล้ว`, confirmButtonText: 'ตกลง' });
-    } else toast('โดเนทสำเร็จ!');
+    const r = await api('/api/qr-donate', { method: 'POST', body: o.body });
+    document.getElementById('dnMethodModal').hidden = true;
+    openPayModal({ ...r, item: o.item, from: o.from });
   } catch (e) {
-    // Token ไม่พอ → พาไปหน้าเติมเงิน
-    if (/Token ไม่พอ/.test(e.message) && window.Swal) {
-      playUiSound('error');
-      const go = await Swal.fire({
-        icon: 'warning', title: 'ยอด Token ไม่พอ', text: e.message,
-        showCancelButton: true, confirmButtonText: 'ไปเติมเงิน', cancelButtonText: 'ปิด', reverseButtons: true,
-      });
-      if (go.isConfirmed) location.href = '/topup.html';
-    } else toast(e.message, false);
+    toast(e.message, false);
   } finally {
-    btn.disabled = false;
-    renderAccount();
+    setMethodBusy(false);
   }
 }
 
-// ถามยืนยันอีกครั้งก่อนตัด Token — สรุปยอด ผู้รับ และยอดคงเหลือหลังโดเนท
-async function confirmDonation(amount, fromName) {
-  const bal = Number(ST.me.token_balance) || 0;
-  if (!window.Swal) return confirm(`ยืนยันโดเนท ${fmt(amount)} บาท ให้ ${ST.profile.display_name}?`);
-  playUiSound('question');
-  const after = bal - amount;
-  const r = await Swal.fire({
-    title: 'ยืนยันการโดเนท?',
-    html: `<div class="dn-confirm">
-        <div class="dn-confirm-amt">${tkAmount(amount)}</div>
-        <div>ให้ <b>${esc(ST.profile.display_name)}</b></div>
-        <div class="dn-confirm-rows">
-          <div><span>ชื่อที่แสดง</span><b>${esc(fromName)}</b></div>
-          <div><span>Token คงเหลือ</span><b>${fmt(bal)} → <span class="${after < 0 ? 'neg' : ''}">${fmt(after)}</span>${tokenIcon()}</b></div>
-        </div>
-        ${after < 0 ? '<div class="dn-confirm-warn">ยอด Token ไม่พอ กรุณาเติมเงินก่อน</div>' : ''}
-      </div>`,
-    icon: 'question',
-    showCancelButton: true,
-    confirmButtonText: after < 0 ? 'ไปเติมเงิน' : 'ยืนยัน ส่งโดเนท',
-    cancelButtonText: 'ยกเลิก',
-    reverseButtons: true,
-    focusConfirm: true,
-  });
-  if (r.isConfirmed && after < 0) { location.href = '/topup.html'; return false; }
-  return r.isConfirmed;
+// ---------- หน้าสแกน QR + อัปโหลดสลิป ----------
+// รายการล่าสุดเก็บไว้ในเบราว์เซอร์ (localStorage) — ปิดหน้าไปก่อนส่งสลิป กลับมาส่งต่อได้ภายใน 24 ชม.
+const PAYX = { cur: null, timer: null };
+const PENDING_TTL = 24 * 60 * 60 * 1000;
+
+function pendingKey() { return 'dn-intent:' + ST.profile.username; }
+function savePending(p) { try { localStorage.setItem(pendingKey(), JSON.stringify(p)); } catch (_) {} }
+function loadPending() { try { return JSON.parse(localStorage.getItem(pendingKey()) || 'null'); } catch (_) { return null; } }
+function clearPending() { try { localStorage.removeItem(pendingKey()); } catch (_) {} }
+
+function initPayModal() {
+  document.getElementById('dnPayClose').onclick = closePayModal;
+  document.getElementById('dnPaySave').onclick = (e) => {
+    e.preventDefault();
+    const box = document.getElementById('dnPayQr');
+    const canvas = box.querySelector('canvas');
+    const src = canvas ? canvas.toDataURL('image/png') : (box.querySelector('img') || {}).src;
+    if (!src) return;
+    const a = el('a', { href: src, download: `donate-${PAYX.cur ? PAYX.cur.reference : 'qr'}.png` });
+    document.body.append(a);
+    a.click();
+    a.remove();
+  };
+  const input = document.getElementById('dnSlipFile');
+  input.onchange = () => { uploadDonationSlip(input.files[0]); input.value = ''; };
 }
 
+function openPayModal(p) {
+  PAYX.cur = p;
+  savePending(p);
+  document.getElementById('dnPending').hidden = true;
+  const money = '฿ ' + Number(p.amount).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  document.getElementById('dnPayTo').textContent = 'โดเนทให้ ' + ST.profile.display_name;
+  document.getElementById('dnPayTotal').textContent = money;
+  document.getElementById('dnPayTotal2').textContent = money;
+  document.getElementById('dnPayItem').textContent = `${p.item || ''} · จาก ${p.from || ''}`;
+  document.getElementById('dnPayRef').textContent = p.reference;
+  const acct = p.account_name || ST.accountName;
+  document.getElementById('dnPayAcct').innerHTML = acct
+    ? `ชื่อบัญชีผู้รับ <b>${esc(acct)}</b>${p.account_masked ? ` <span class="muted">(${esc(p.account_masked)})</span>` : ''}` : '';
+  const qr = document.getElementById('dnPayQr');
+  qr.innerHTML = '';
+  qr.classList.remove('expired');
+  if (window.QRCode) new QRCode(qr, { text: p.qr, width: 220, height: 220, correctLevel: QRCode.CorrectLevel.M });
+  else qr.textContent = p.qr;
+  setSlipMsg('');
+  setPayState('wait');
+  document.getElementById('dnPayModal').hidden = false;
+  clearInterval(PAYX.timer);
+  PAYX.timer = setInterval(pollDonation, 3000);
+}
+
+function closePayModal() {
+  clearInterval(PAYX.timer);
+  document.getElementById('dnPayModal').hidden = true;
+  PAYX.cur = null;
+  checkPendingIntent();
+}
+
+function setSlipMsg(text, err = false) {
+  const m = document.getElementById('dnSlipMsg');
+  m.textContent = text;
+  m.classList.toggle('err', err);
+}
+
+function setPayState(state, note) {
+  const box = document.getElementById('dnPayState');
+  const p = PAYX.cur;
+  box.className = 'pp-qr-state ' + state;
+  document.getElementById('dnPaySlip').hidden = state === 'review' || state === 'rejected';
+  document.getElementById('dnPayExpire').innerHTML = p && state === 'wait'
+    ? 'QR หมดอายุ <b>' + new Date(p.expires_at).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) + ' น.</b>' : '';
+  if (state === 'expired') {
+    box.innerHTML = 'QR หมดอายุแล้ว — ถ้าโอนไปแล้ว ยังอัปโหลดสลิปได้ภายใน 24 ชั่วโมง';
+    document.getElementById('dnPayQr').classList.add('expired');
+  } else if (state === 'review') {
+    box.innerHTML = '<span class="pp-pulse"></span>ได้รับสลิปแล้ว — รอสตรีมเมอร์ตรวจสอบยอดเงิน แจ้งเตือนจะขึ้นบนไลฟ์เมื่อยืนยัน';
+  } else if (state === 'rejected') {
+    box.innerHTML = 'โดเนทนี้ไม่ผ่านการตรวจสอบ' + (note ? ': ' + esc(note) : '');
+  } else {
+    box.innerHTML = '<span class="pp-pulse"></span>รอการโอนเงิน…';
+  }
+}
+
+async function pollDonation() {
+  const p = PAYX.cur;
+  if (!p) return;
+  let s;
+  try { s = await api(`/api/qr-donate/${p.reference}?t=${encodeURIComponent(p.pay_token)}`); } catch (_) { return; }
+  if (PAYX.cur !== p) return;
+  if (s.status === 'completed') donationDone(p, s.amount);
+  else if (s.status === 'rejected') { clearInterval(PAYX.timer); clearPending(); setPayState('rejected', s.note); }
+  else if (s.status === 'review') setPayState('review');
+  else if (s.status === 'expired' && !s.accepts_slip) { clearInterval(PAYX.timer); clearPending(); setPayState('rejected', 'หมดเวลาส่งสลิปแล้ว'); }
+  else if (s.status === 'expired' && !document.getElementById('dnPayState').classList.contains('expired')) setPayState('expired');
+}
+
+async function uploadDonationSlip(file) {
+  const p = PAYX.cur;
+  if (!file || !p) return;
+  const btn = document.getElementById('dnSlipBtn');
+  btn.classList.add('busy');
+  setSlipMsg('กำลังตรวจสลิปกับธนาคาร…');
+  try {
+    const slip = await slipToDataUrl(file);
+    const r = await api(`/api/qr-donate/${p.reference}/slip`, { method: 'POST', body: { t: p.pay_token, slip } });
+    if (PAYX.cur !== p) return;
+    setSlipMsg('');
+    if (r.status === 'completed') donationDone(p, r.amount);
+    else setPayState('review');
+  } catch (e) {
+    if (PAYX.cur === p) setSlipMsg(e.message, true);
+  } finally {
+    btn.classList.remove('busy');
+  }
+}
+
+function donationDone(p, paid) {
+  clearInterval(PAYX.timer);
+  clearPending();
+  document.getElementById('dnPayModal').hidden = true;
+  PAYX.cur = null;
+  // ล้างฟอร์มสำหรับโดเนทครั้งถัดไป
+  document.getElementById('dnMsg').value = '';
+  document.getElementById('dnMsg').dataset.prev = '';
+  document.getElementById('dnMsgCount').textContent = '0';
+  clearVoice();
+  clearAudio();
+  if (ST.selectedSticker) selectSticker(null);
+  playUiSound('success');
+  // ยอดที่โอนจริงต่างจากที่กรอก → ระบบใช้ยอดจริง
+  const item = paid && paid !== p.amount && !(p.item || '').startsWith('สติกเกอร์') ? `โดเนท ฿${fmt(paid)}` : p.item;
+  const text = `ส่ง ${item || ''} ให้ ${ST.profile.display_name} แล้ว — แจ้งเตือนขึ้นบนไลฟ์เรียบร้อย`;
+  if (window.Swal) Swal.fire({ icon: 'success', title: 'โดเนทสำเร็จ! 🎉', text, confirmButtonText: 'ตกลง' });
+  else toast('โดเนทสำเร็จ!');
+}
+
+// มีรายการค้าง (สร้าง QR แล้วยังไม่ได้ส่งสลิป) → แถบแจ้งให้กลับไปส่งสลิปต่อ
+async function checkPendingIntent() {
+  const bar = document.getElementById('dnPending');
+  bar.hidden = true;
+  const p = loadPending();
+  if (!p || !p.reference || Date.now() - (p.expires_at - 15 * 60 * 1000) > PENDING_TTL) { clearPending(); return; }
+  let s;
+  try { s = await api(`/api/qr-donate/${p.reference}?t=${encodeURIComponent(p.pay_token)}`); } catch (_) { clearPending(); return; }
+  if (!['pending', 'expired', 'review'].includes(s.status) || (s.status !== 'review' && !s.accepts_slip)) { clearPending(); return; }
+  bar.innerHTML = s.status === 'review'
+    ? `⏳ โดเนท ฿${fmt(p.amount)} ของคุณรอสตรีมเมอร์ตรวจสลิป <button type="button" class="sm ghost" id="dnPendingOpen">ดูสถานะ</button>`
+    : `📎 คุณสร้าง QR โดเนท ฿${fmt(p.amount)} ไว้แต่ยังไม่ได้ส่งสลิป <button type="button" class="sm" id="dnPendingOpen">ส่งสลิป</button> <button type="button" class="sm ghost" id="dnPendingDrop">ยกเลิก</button>`;
+  bar.hidden = false;
+  document.getElementById('dnPendingOpen').onclick = () => openPayModal(p);
+  const drop = document.getElementById('dnPendingDrop');
+  if (drop) drop.onclick = () => { clearPending(); bar.hidden = true; };
+}
 
 // ---------- ส่งสติกเกอร์ (ราคาคงที่, แนบข้อความไม่ได้) ----------
 function renderStickers() {
@@ -368,7 +535,7 @@ function renderStickers() {
     b.append(
       st.image_url ? el('img', { class: 'dn-sticker-art', src: st.image_url, alt: '' }) : el('span', { class: 'dn-sticker-art' }, st.emoji || '⭐'),
       el('span', { class: 'dn-sticker-name' }, st.name),
-      el('span', { class: 'dn-sticker-cost', html: tkAmount(st.cost) }));
+      el('span', { class: 'dn-sticker-cost' }, '฿' + fmt(st.cost)));
     b.onclick = () => selectSticker(ST.selectedSticker && ST.selectedSticker.code === st.code ? null : st);
     box.append(b);
   });
@@ -401,65 +568,4 @@ function selectSticker(st) {
   document.getElementById('dnMsgNote').hidden = !st;
   updateMediaSections();
   renderAccount();
-}
-
-async function sendSticker(st) {
-  if (!ST.me) { location.href = '/login.html?next=' + encodeURIComponent(location.pathname); return; }
-  if (isSelf()) return toast('โดเนทให้ตัวเองไม่ได้', false);
-  if (!validate(false)) return;
-  if (!ST.me.email_verified) return toast('กรุณายืนยันอีเมลก่อนโดเนท', false);
-
-  const from = document.getElementById('dnFrom').value.trim();
-  const bal = Number(ST.me.token_balance) || 0;
-  const after = bal - st.cost;
-  if (!window.Swal) {
-    if (!confirm(`ส่ง${st.name} (${st.cost} Token) ให้ ${ST.profile.display_name}?`)) return;
-  } else {
-  playUiSound('question');
-  const art = st.image_url ? `<img src="${esc(st.image_url)}" alt="" style="width:84px">` : esc(st.emoji || '⭐');
-  const r = await Swal.fire({
-    title: 'ยืนยันการส่งสติกเกอร์?',
-    html: `<div class="dn-confirm">
-        <div class="dn-confirm-sticker">${art}</div>
-        <div>ส่ง <b>${esc(st.name)}</b> ให้ <b>${esc(ST.profile.display_name)}</b></div>
-        <div class="dn-confirm-rows">
-          <div><span>ราคา</span><b>${tkAmount(st.cost)}</b></div>
-          <div><span>ชื่อที่แสดง</span><b>${esc(from)}</b></div>
-          <div><span>Token คงเหลือ</span><b>${fmt(bal)} → <span class="${after < 0 ? 'neg' : ''}">${fmt(after)}</span>${tokenIcon()}</b></div>
-        </div>
-        ${after < 0 ? '<div class="dn-confirm-warn">ยอด Token ไม่พอ กรุณาเติมเงินก่อน</div>' : ''}
-      </div>`,
-    showCancelButton: true,
-    confirmButtonText: after < 0 ? 'ไปเติมเงิน' : 'ยืนยัน ส่งสติกเกอร์',
-    cancelButtonText: 'ยกเลิก',
-    reverseButtons: true,
-  });
-  if (!r.isConfirmed) return;
-  if (after < 0) { location.href = '/topup.html'; return; }
-  }
-
-  const btn = document.getElementById('dnSubmit');
-  btn.disabled = true;
-  btn.textContent = 'กำลังส่ง…';
-  try {
-    const res = await api('/api/donate', {
-      method: 'POST',
-      body: {
-        streamer: ST.profile.username, sticker_code: st.code, sticker_only: true,
-        display_name: from,
-        hide_email: document.getElementById('dnHideEmail').checked,
-      },
-    });
-    ST.me.token_balance = res.balance;
-    document.getElementById('dnMsg').dataset.prev = '';
-    selectSticker(null);
-    updateNavBalance(ST.me.token_balance);
-    playUiSound('success');
-    if (window.Swal) Swal.fire({ icon: 'success', title: `ส่ง${st.name}แล้ว! ${st.emoji || ''}`, text: `${ST.profile.display_name} จะเห็นสติกเกอร์ของคุณบนไลฟ์`, confirmButtonText: 'ตกลง' });
-  } catch (e) {
-    toast(e.message, false);
-  } finally {
-    btn.disabled = false;
-    renderAccount();
-  }
 }

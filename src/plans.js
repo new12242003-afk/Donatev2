@@ -1,17 +1,25 @@
 const { db, getConfig, setConfigValue } = require('./db');
-const ledger = require('./ledger');
 const { now } = require('./util');
 
-// แพลนการใช้งาน — สมัครสมาชิกแล้วใช้ฟรี 21 วัน หลังจากนั้นซื้อแพลนด้วย Token เพื่อให้รับโดเนทต่อได้
+// แพลนการใช้งาน — สมัครสมาชิกแล้วใช้ฟรี 14 วัน หลังจากนั้นซื้อแพลน (สแกน QR พร้อมเพย์ของเว็บ) เพื่อให้รับโดเนทต่อได้
 // หมดอายุ = สตรีมเมอร์รับโดเนทไม่ได้ (ผู้โดเนท/ผู้ชมใช้งานได้ปกติ, แอดมินไม่มีวันหมดอายุ)
 const DAY = 24 * 60 * 60 * 1000;
-const TRIAL_DAYS = 21;
+const TRIAL_DAYS = 14;
 const PLANS = [
-  { id: '1m', label: '1 เดือน', days: 30, months: 1, price: 20 },
-  { id: '3m', label: '3 เดือน', days: 90, months: 3, price: 59 },
-  { id: '6m', label: '6 เดือน', days: 180, months: 6, price: 109 },
-  { id: '1y', label: '1 ปี', days: 365, months: 12, price: 200, recommended: true },
+  { id: '1m', label: '1 เดือน', days: 30, months: 1, price: 79 },
+  { id: '3m', label: '3 เดือน', days: 90, months: 3, price: 219 },
+  { id: '6m', label: '6 เดือน', days: 180, months: 6, price: 399 },
+  { id: '1y', label: '1 ปี', days: 365, months: 12, price: 699, recommended: true },
 ];
+
+// ทดลองฟรีเปลี่ยนจาก 21 → 14 วัน: บัญชีที่สมัครก่อนเปลี่ยนและยังไม่เคยซื้อแพลน ยังได้ 21 วันเต็มตามที่ได้ตอนสมัคร (ทำครั้งเดียว)
+if (getConfig('trial_14_migrated', '') !== '1') {
+  const OLD_TRIAL = 21 * DAY;
+  db.prepare(`UPDATE users SET plan_expires_at = created_at + ?
+    WHERE (plan_expires_at IS NULL OR plan_expires_at < created_at + ?)
+      AND id NOT IN (SELECT user_id FROM plan_purchases)`).run(OLD_TRIAL, OLD_TRIAL);
+  setConfigValue('trial_14_migrated', '1');
+}
 
 // ประวัติการซื้อก่อนมีตาราง plan_purchases อยู่แค่ใน ledger (transactions) — ย้ายมาครั้งเดียว
 // ช่วงเวลาของรายการเก่าเดาย้อนหลังจากวันหมดอายุจริงของบัญชี (ดู fillMissingDates)
@@ -74,7 +82,7 @@ function isActive(u) { return planStatus(u).active; }
 function planDetails(u) {
   const status = planStatus(u);
   const rows = db.prepare('SELECT * FROM plan_purchases WHERE user_id = ? ORDER BY id').all(u.id);
-  // ทดลองใช้ฟรีจบตอนแพลนแรกเริ่ม (ซื้อต่อก่อนหมด) — ถ้าซื้อหลังหมดอายุไปแล้ว ถือว่าจบที่ 21 วันหลังสมัคร
+  // ทดลองใช้ฟรีจบตอนแพลนแรกเริ่ม (ซื้อต่อก่อนหมด) — ถ้าซื้อหลังหมดอายุไปแล้ว ถือว่าจบที่ TRIAL_DAYS วันหลังสมัคร
   const first = rows[0];
   const trialEnd = !first ? expiresAt(u)
     : first.starts_at > first.created_at ? first.starts_at
@@ -90,28 +98,30 @@ function planDetails(u) {
   return { status, period_start: current.starts_at, period_label: current.label, trial_days: TRIAL_DAYS, history: history.reverse() };
 }
 
-// ซื้อ/ต่ออายุแพลน: หัก Token แล้วต่อเวลาจากวันหมดอายุเดิม (ยังไม่หมด = ต่อท้าย, หมดแล้ว = เริ่มนับจากวันนี้)
-function purchase(userId, planId) {
-  const plan = PLANS.find((p) => p.id === planId);
-  if (!plan) { const e = new Error('ไม่พบแพลนนี้'); e.code = 'BAD_PLAN'; throw e; }
-  return db.transaction(() => {
-    const u = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
-    const base = Math.max(expiresAt(u), now());
-    const newExp = base + plan.days * DAY;
-    const balance = ledger.debit(userId, 'token_balance', plan.price, 'plan_purchase', 'plan', null, `ซื้อแพลน ${plan.label}`);
-    db.prepare('UPDATE users SET plan_expires_at = ? WHERE id = ?').run(newExp, userId);
-    db.prepare(`INSERT INTO plan_purchases (user_id, plan_id, label, days, price, starts_at, expires_at, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`).run(userId, plan.id, plan.label, plan.days, plan.price, base, newExp, now());
-    return { balance, plan, status: planStatus({ ...u, plan_expires_at: newExp }) };
-  })();
+function findPlan(planId) {
+  return PLANS.find((p) => p.id === planId) || null;
+}
+
+// ต่ออายุแพลนหลังได้รับเงินแล้ว (src/planOrders.js) — ต่อเวลาจากวันหมดอายุเดิม (ยังไม่หมด = ต่อท้าย, หมดแล้ว = เริ่มนับจากวันนี้)
+// ต้องเรียกภายใน db.transaction() ของผู้เรียก เพื่อให้ atomic กับการบันทึกว่าจ่ายแล้ว
+function applyPurchase(userId, planId, price) {
+  const plan = findPlan(planId);
+  if (!plan) throw new Error('ไม่พบแพลนนี้: ' + planId);
+  const u = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
+  const base = Math.max(expiresAt(u), now());
+  const newExp = base + plan.days * DAY;
+  db.prepare('UPDATE users SET plan_expires_at = ? WHERE id = ?').run(newExp, userId);
+  db.prepare(`INSERT INTO plan_purchases (user_id, plan_id, label, days, price, starts_at, expires_at, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)`).run(userId, plan.id, plan.label, plan.days, price ?? plan.price, base, newExp, now());
+  return planStatus({ ...u, plan_expires_at: newExp });
 }
 
 // ผู้โดเนทอัปเกรดเป็นสตรีมเมอร์: ช่วงทดลองฟรีเริ่มนับจากวันอัปเกรด (ไม่ใช่วันสมัคร) — เฉพาะคนที่ยังไม่เคยซื้อแพลน
-// และเวลาที่เหลืออยู่น้อยกว่า 21 วัน (ไม่ลดเวลาของคนที่เหลือมากกว่านั้นอยู่แล้ว)
+// และเวลาที่เหลืออยู่น้อยกว่า TRIAL_DAYS วัน (ไม่ลดเวลาของคนที่เหลือมากกว่านั้นอยู่แล้ว)
 function startTrialOnUpgrade(u) {
   if (hasPurchase(u.id)) return;
   const trialEnd = now() + TRIAL_DAYS * DAY;
   if (expiresAt(u) < trialEnd) db.prepare('UPDATE users SET plan_expires_at = ? WHERE id = ?').run(trialEnd, u.id);
 }
 
-module.exports = { PLANS, TRIAL_DAYS, planStatus, planDetails, isActive, purchase, startTrialOnUpgrade };
+module.exports = { PLANS, TRIAL_DAYS, findPlan, planStatus, planDetails, isActive, applyPurchase, startTrialOnUpgrade };

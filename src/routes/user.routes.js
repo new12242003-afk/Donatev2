@@ -35,19 +35,6 @@ router.post('/notifications/read', (req, res) => {
 // รายละเอียดแพลน + ประวัติการสมัครแพลน (แดชบอร์ด)
 router.get('/plan', (req, res) => res.json(plans.planDetails(req.user)));
 
-// ซื้อ/ต่ออายุแพลนด้วย Token
-router.post('/plan', (req, res) => {
-  try {
-    const r = plans.purchase(req.user.id, String(req.body.plan || ''));
-    res.json({ ok: true, balance: r.balance, plan: r.status });
-  } catch (e) {
-    if (e.code === 'BAD_PLAN') return res.status(400).json({ error: e.message });
-    if (e.code === 'INSUFFICIENT_BALANCE') return res.status(400).json({ error: 'ยอด Token ไม่พอ กรุณาเติมเงินก่อน' });
-    console.error(e);
-    res.status(500).json({ error: 'ซื้อแพลนไม่สำเร็จ' });
-  }
-});
-
 router.patch('/', (req, res) => {
   // username เป็นข้อมูลถาวรของบัญชี แก้ไขไม่ได้แม้จะส่งมาใน body
   const b = req.body || {};
