@@ -25,9 +25,16 @@
         <h1 class="dn-name"><span id="dnName"></span><span class="dn-badge" id="dnBadge" hidden title="ยืนยันตัวตนแล้ว">
           <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="#1d9bf0"/><path d="M7 12.5l3.2 3.2L17 9" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </span></h1>
+        <!-- กำลังไลฟ์ / ออฟไลน์ + ไลฟ์ถัดไป (อัปเดตเองเป็นระยะ) -->
+        <div class="dn-live" id="dnLive"></div>
         <div class="dn-bio" id="dnBio"></div>
         <div id="dnSocial"></div>
       </header>
+
+      <details class="dn-sched" id="dnSched" hidden>
+        <summary>📅 ตารางไลฟ์ <span class="muted">(เวลาไทย)</span></summary>
+        <div id="dnSchedBody"></div>
+      </details>
 
       <div class="dn-selfnote" id="dnSelfNote" hidden>
         👀 นี่คือหน้าโดเนทของคุณ — ผู้ชมจะเห็นหน้านี้เมื่อเปิดลิงก์ (คุณโดเนทให้ตัวเองไม่ได้)

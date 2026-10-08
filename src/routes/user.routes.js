@@ -7,6 +7,8 @@ const { requireAuth, publicUser } = require('../auth');
 const { token, now, clean } = require('../util');
 const { sendVerifyEmail } = require('../mailer');
 const { sanitizeSocialLinks } = require('../social');
+const { cleanCategories } = require('../categories');
+const { broadcastProfile } = require('../live');
 const plans = require('../plans');
 const notify = require('../notify');
 
@@ -45,14 +47,21 @@ router.patch('/', (req, res) => {
     social = sanitizeSocialLinks(b.social_links);
     if (social.error) return res.status(400).json({ error: social.error });
   }
+  // หมวดหลัก + หมวดย่อย ต้องอยู่ในรายการของ src/categories.js
+  let cats = null;
+  if (b.creator_category !== undefined) {
+    cats = cleanCategories(b.creator_category, b.creator_subcategories, req.user.creator_category);
+    if (cats.error) return res.status(400).json({ error: cats.error });
+  }
 
   const dn = clean(b.display_name || '', 40);
   if (dn) db.prepare('UPDATE users SET display_name = ? WHERE id = ?').run(dn, req.user.id);
 
   // ข้อมูลโปรไฟล์สาธารณะ — bio และหมวดหมู่ครีเอเตอร์ แสดงในหน้าโดเนทสาธารณะ
   if (b.bio !== undefined) db.prepare('UPDATE users SET bio = ? WHERE id = ?').run(clean(b.bio || '', 160), req.user.id);
-  if (b.creator_category !== undefined) {
-    db.prepare('UPDATE users SET creator_category = ? WHERE id = ?').run(clean(b.creator_category || '', 40), req.user.id);
+  if (cats) {
+    db.prepare('UPDATE users SET creator_category = ?, creator_subcategories = ? WHERE id = ?')
+      .run(cats.category, JSON.stringify(cats.subs), req.user.id);
   }
   if (social) db.prepare('UPDATE users SET social_links = ? WHERE id = ?').run(JSON.stringify(social.links), req.user.id);
 
@@ -75,6 +84,8 @@ router.patch('/', (req, res) => {
     pick('address_zipcode', 10, true),
     req.user.id);
 
+  // แก้ข้อมูลที่ผู้ชมเห็น → หน้าสาธารณะที่เปิดอยู่อัปเดตทันที
+  if (dn || b.bio !== undefined || cats || social) broadcastProfile(req.user.id);
   res.json({ ok: true, social_links: social ? social.links : undefined });
 });
 
@@ -113,6 +124,7 @@ router.post('/avatar', (req, res) => {
   if (old && old.startsWith('/uploads/avatars/')) {
     removeUpload(old);
   }
+  broadcastProfile(req.user.id);
   res.json({ ok: true, avatar_url: url });
 });
 
@@ -135,12 +147,14 @@ router.post('/cover', (req, res) => {
   const url = '/uploads/covers/' + filename;
   db.prepare('UPDATE users SET cover_url = ? WHERE id = ?').run(url, req.user.id);
   removeCoverFile(req.user.cover_url);
+  broadcastProfile(req.user.id);
   res.json({ ok: true, cover_url: url });
 });
 
 router.delete('/cover', (req, res) => {
   db.prepare('UPDATE users SET cover_url = NULL WHERE id = ?').run(req.user.id);
   removeCoverFile(req.user.cover_url);
+  broadcastProfile(req.user.id);
   res.json({ ok: true });
 });
 

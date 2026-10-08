@@ -101,6 +101,25 @@
       socket.emit('overlay:join', key);
     });
     socket.on('overlay:error', () => console.warn('overlay key invalid'));
+
+    // สถานะไลฟ์: เปิดใน OBS เท่านั้น (มี window.obsstudio) → บอกเซิร์ฟเวอร์ว่ากำลังสตรีมอยู่ไหม
+    // หน้าโดเนทจะขึ้น "กำลังไลฟ์" อัตโนมัติ — เปิดในเบราว์เซอร์ทั่วไป (ทดสอบ) ไม่ส่ง = ไม่นับว่าไลฟ์
+    const obs = window.obsstudio;
+    const reportLive = (streaming) => socket.emit('overlay:live', { streaming });
+    socket.on('overlay:ready', () => {
+      if (!obs) return;
+      if (typeof obs.getStatus !== 'function') return reportLive(null);
+      // OBS ไม่ตอบ (สิทธิ์ของ Browser Source ไม่พอ) → บอกว่าไม่รู้สถานะ เซิร์ฟเวอร์ถือว่าเปิด OBS อยู่ = ออนไลน์
+      let answered = false;
+      const t = setTimeout(() => { if (!answered) reportLive(null); }, 2000);
+      try {
+        obs.getStatus((st) => { answered = true; clearTimeout(t); reportLive(!!(st && st.streaming)); });
+      } catch (_) {}
+    });
+    if (obs) {
+      window.addEventListener('obsStreamingStarted', () => reportLive(true));
+      window.addEventListener('obsStreamingStopped', () => reportLive(false));
+    }
     socket.on('donation', (d) => {
       if (d.settings && d.settings.show === false) return;
       queue.push(d);

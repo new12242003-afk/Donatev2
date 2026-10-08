@@ -54,6 +54,7 @@ function publicUser(u) {
     address_zipcode: u.address_zipcode || '',
     bio: u.bio || '',
     creator_category: u.creator_category || '',
+    creator_subcategories: require('./categories').parseSubs(u.creator_subcategories),
     social_links: parseSocialLinks(u.social_links),
     plan: require('./plans').planStatus(u),
   };

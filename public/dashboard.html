@@ -137,6 +137,26 @@
             </div>
           </div>
 
+          <!-- สถานะไลฟ์ + ตารางไลฟ์: แสดงบนหน้าโดเนทและหน้าสตรีมเมอร์ (src/live.js) -->
+          <div class="card" id="liveCard">
+            <h2>สถานะไลฟ์ & ตารางไลฟ์</h2>
+            <p class="muted">ผู้ชมจะเห็นว่าคุณกำลังไลฟ์อยู่ไหม และไลฟ์ครั้งถัดไปเมื่อไร บนหน้าโดเนทและหน้าสตรีมเมอร์</p>
+            <div class="lv-now" id="lvNow"></div>
+            <label for="lvMode">วิธีแสดงสถานะ</label>
+            <select id="lvMode">
+              <option value="auto">อัตโนมัติ: ขึ้น "กำลังไลฟ์" เมื่อ OBS เริ่มสตรีม (ต้องใส่ Overlay ใน OBS)</option>
+              <option value="online">ตั้งเอง: แสดงว่ากำลังไลฟ์</option>
+              <option value="offline">ตั้งเอง: แสดงว่าออฟไลน์</option>
+            </select>
+            <div class="muted lv-hint">ใช้โปรแกรมอื่นที่ไม่ใช่ OBS (เช่น Streamlabs, Prism) ให้เลือก "ตั้งเอง" แล้วสลับเองตอนเริ่ม/จบไลฟ์</div>
+            <label>ตารางไลฟ์ประจำสัปดาห์ <span class="muted">(เวลาไทย · ติ๊กวันที่ไลฟ์ แล้วใส่เวลาเริ่ม–จบ)</span></label>
+            <div class="lv-days" id="lvDays"></div>
+            <label for="lvNote">หมายเหตุ <span class="muted">(ไม่บังคับ)</span></label>
+            <input id="lvNote" maxlength="120" placeholder="เช่น งดไลฟ์ช่วงสงกรานต์ / วันศุกร์ไลฟ์ยาวถึงเช้า">
+            <div class="muted lv-hint">การ์ดนี้บันทึกอัตโนมัติทุกครั้งที่แก้ ไม่ต้องกดบันทึก</div>
+          </div>
+          <div class="autosave-status" id="lvSaveStatus" aria-live="polite"></div>
+
           <!-- QR พร้อมเพย์รับโดเนท: ผู้ชมโอนตรงเข้าบัญชีสตรีมเมอร์ -->
           <div class="card" id="ppqCard">
             <h2>QR รับโดเนท (พร้อมเพย์)</h2>
@@ -557,19 +577,14 @@
             <h2>โปรไฟล์สาธารณะ</h2>
             <p class="muted">แสดงในหน้ารายชื่อสตรีมเมอร์ ให้ผู้ชมรู้จักคุณก่อนโดเนท</p>
             <label>หมวดหมู่ครีเอเตอร์</label>
+            <!-- รายการหมวดโหลดจาก /api/public/categories (src/categories.js) -->
             <select id="p_category">
               <option value="">— ไม่ระบุ —</option>
-              <option value="เกม">เกม</option>
-              <option value="ศิลปะ">ศิลปะ</option>
-              <option value="ดนตรี">ดนตรี</option>
-              <option value="อาหาร">อาหาร</option>
-              <option value="ท่องเที่ยว">ท่องเที่ยว</option>
-              <option value="การศึกษา">การศึกษา</option>
-              <option value="ไลฟ์สไตล์">ไลฟ์สไตล์</option>
-              <option value="กีฬา">กีฬา</option>
-              <option value="ธุรกิจ">ธุรกิจ</option>
-              <option value="อื่นๆ">อื่นๆ</option>
             </select>
+            <div id="p_subWrap" hidden>
+              <label>หมวดย่อย <span class="muted" id="p_subHint"></span></label>
+              <div class="subcat-chips" id="p_subcats" role="group" aria-label="หมวดย่อย"></div>
+            </div>
             <label>คำอธิบายตัวตน (Bio)</label>
             <textarea id="p_bio" rows="3" maxlength="160" placeholder="แนะนำตัวสั้น ๆ ให้ผู้สนับสนุนรู้จักคุณ"></textarea>
             <div class="muted" id="bioCount" style="margin-top:4px;text-align:right">0/160</div>
@@ -583,8 +598,9 @@
               <div id="socialPreview" class="social-row"></div>
             </div>
 
-            <div style="margin-top:14px"><button class="sm" id="saveBio">บันทึกโปรไฟล์สาธารณะ</button></div>
+            <div class="muted lv-hint">การ์ดนี้บันทึกอัตโนมัติทุกครั้งที่แก้ ผู้ชมเห็นการเปลี่ยนแปลงทันที (ลิงก์โซเชียลบันทึกเมื่อกด "เสร็จแล้ว")</div>
           </div>
+          <div class="autosave-status" id="pfSaveStatus" aria-live="polite"></div>
 
           <div class="card">
             <h2>ข้อมูลผู้ใช้งาน</h2>

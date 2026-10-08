@@ -2261,3 +2261,246 @@ body.auth-page a:focus-visible, body.auth-page button:focus-visible { outline: 3
   body.home .hm-cta .btn { flex: 1 1 100%; }
   body.home .hm-stats b { font-size: 30px; }
 }
+
+/* ---------- สถานะไลฟ์ + ตารางไลฟ์ (common.js liveBadge / liveScheduleEl) ---------- */
+.live-badge { display: inline-flex; align-items: center; gap: 6px; padding: 3px 11px; border-radius: 999px; font-size: calc(12.5px * var(--text-scale)); font-weight: 700; background: rgba(150, 150, 158, .16); color: var(--muted); white-space: nowrap; }
+.live-badge i { width: 8px; height: 8px; border-radius: 50%; background: currentColor; opacity: .7; }
+.live-badge.on { background: #ef4444; color: #fff; }
+.live-badge.on i { background: #fff; opacity: 1; animation: live-pulse 1.4s ease-in-out infinite; }
+@keyframes live-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, .7); } 50% { box-shadow: 0 0 0 4px rgba(255, 255, 255, 0); } }
+@media (prefers-reduced-motion: reduce) { .live-badge.on i { animation: none; } }
+.live-sched-list { list-style: none; margin: 8px 0 0; padding: 0; }
+.live-sched-list li { display: flex; justify-content: space-between; gap: 12px; padding: 6px 2px; border-bottom: 1px dashed var(--line); font-size: calc(13.5px * var(--text-scale)); }
+.live-sched-list li:last-child { border-bottom: 0; }
+.live-sched-list li.off { opacity: .5; }
+.live-sched-list li.off b { font-weight: 500; }
+.live-sched-list li.today { font-weight: 700; color: var(--brand); }
+.live-sched-note { margin-top: 8px; font-size: calc(13px * var(--text-scale)); color: var(--muted); word-break: break-word; }
+
+/* หน้าโดเนท (ธีมสว่างเสมอ) */
+.dn-live { display: flex; flex-direction: column; align-items: center; gap: 4px; margin: 2px 0 8px; }
+.dn-live-sub { color: #6b6b76; font-size: calc(13px * var(--text-scale)); }
+.dn-page .live-badge:not(.on) { background: #eceef2; color: #4b4b55; }
+.dn-sched { background: #fff; border: 1px solid #d9d9e0; border-radius: 14px; padding: 10px 16px; margin-bottom: 14px; color: #1d1d24; }
+.dn-sched summary { cursor: pointer; font-weight: 600; font-size: calc(14px * var(--text-scale)); }
+.dn-sched summary .muted { color: #8a8a95; font-weight: 400; }
+.dn-page .live-sched-list li { border-color: #ececf1; }
+.dn-page .live-sched-list li.today { color: #1f3fd1; }
+.dn-page .live-sched-note { color: #6b6b76; }
+
+/* หน้าสตรีมเมอร์: ป้าย LIVE บนการ์ด + สถานะในโปรไฟล์ */
+.sd-live { position: absolute; top: 10px; left: 10px; display: inline-flex; align-items: center; gap: 5px; padding: 2px 9px; border-radius: 6px; background: #ef4444; color: #fff; font-size: calc(11px * var(--text-scale)); font-weight: 800; letter-spacing: .5px; }
+.sd-live i { width: 6px; height: 6px; border-radius: 50%; background: #fff; }
+.sd-live.off { background: rgba(15, 23, 42, .62); color: #e5e7eb; font-weight: 700; letter-spacing: 0; }
+.sd-live.off i { background: #9ca3af; }
+.sd-live-sub { font-size: calc(12.5px * var(--text-scale)); color: var(--muted); line-height: 1.45; }
+.sp-live { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: calc(13.5px * var(--text-scale)); }
+.sp-label-note { text-transform: none; font-weight: 400; letter-spacing: 0; }
+
+/* แดชบอร์ด: การ์ดตั้งค่าสถานะไลฟ์ + ตารางไลฟ์ */
+.lv-now { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 10px; background: var(--card2); font-size: calc(13.5px * var(--text-scale)); }
+.lv-hint { margin-top: 6px; font-size: calc(12.5px * var(--text-scale)); }
+.lv-days { display: grid; gap: 8px; }
+.lv-day { display: flex; align-items: center; gap: 10px; }
+.lv-day .lv-day-name { display: flex; align-items: center; gap: 8px; width: 120px; margin: 0; color: var(--text); font-size: calc(14px * var(--text-scale)); cursor: pointer; }
+.lv-time { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+.lv-day .lv-time input { width: 96px; padding-left: 8px !important; padding-right: 8px !important; text-align: center; font-variant-numeric: tabular-nums; letter-spacing: .5px; }
+.lv-day .lv-time input.invalid { border-color: var(--err) !important; }
+.lv-say { min-width: 92px; font-size: calc(12.5px * var(--text-scale)); color: var(--muted); white-space: nowrap; }
+.lv-time input.invalid + .lv-say { color: var(--err); }
+.lv-hint-row { font-size: calc(12.5px * var(--text-scale)); color: var(--muted); }
+.lv-day.off .lv-time { opacity: .4; }
+.lv-from { display: none; }
+/* มือถือ: วัน / เริ่ม [เวลา] / ถึง [เวลา] คนละบรรทัด ให้ข้อความเวลาแบบไทยไม่โดนตัด */
+@media (max-width: 520px) {
+  .lv-day { display: grid; grid-template-columns: auto 1fr; gap: 6px 10px; align-items: center; }
+  .lv-day .lv-day-name { grid-column: 1 / -1; width: auto; }
+  .lv-from { display: inline; }
+  .lv-say { min-width: 0; }
+  .lv-day .lv-time input { width: 116px; }
+  .lv-hint-row { grid-column: 2; }
+  .lv-hint-row:empty { display: none; }
+}
+/* นับถอยหลังถึงไลฟ์ถัดไป (common.js liveCountdownEl) */
+.live-countdown { display: inline-flex; align-items: center; gap: 4px; padding: 2px 10px; border-radius: 999px; background: rgba(77, 107, 255, .14); color: var(--brand); font-size: calc(12.5px * var(--text-scale)); font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.dn-page .live-countdown { background: #e8edff; color: #1f3fd1; }
+.sd-live-count { align-self: flex-start; margin-top: 4px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+:root:not([data-theme="light"]) body:not(.dn-page) .live-countdown,
+:root:not([data-theme="light"]) body:not(.dn-page) .live-sched-list li.today { color: #8ea2ff; }
+/* หน้าสตรีมเมอร์: แถบกรอง ทั้งหมด / กำลังไลฟ์ / หมวดหมู่ */
+.sd-filters { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 12px; }
+.sd-filter {
+  display: inline-flex; align-items: center; gap: 7px; padding: 7px 14px; border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--line); background: var(--card); color: var(--text); font: inherit; font-size: calc(13.5px * var(--text-scale)); font-weight: 600;
+  transition: border-color .15s, background .15s, color .15s;
+}
+.sd-filter:hover { border-color: var(--plan-blue); }
+.sd-filter:focus-visible { outline: 2px solid var(--plan-blue); outline-offset: 2px; }
+.sd-filter-n { min-width: 20px; padding: 0 6px; border-radius: 999px; background: var(--card2); color: var(--muted); font-size: calc(11.5px * var(--text-scale)); text-align: center; font-variant-numeric: tabular-nums; }
+.sd-filter.active { background: var(--plan-blue); border-color: var(--plan-blue); color: #fff; }
+.sd-filter.active .sd-filter-n { background: rgba(255, 255, 255, .22); color: #fff; }
+.sd-filter.live i { width: 8px; height: 8px; border-radius: 50%; background: #ef4444; }
+.sd-filter.live.active { background: #ef4444; border-color: #ef4444; }
+.sd-filter.live.active i { background: #fff; }
+button.sd-cat { border: 0; font-family: inherit; cursor: pointer; }
+button.sd-cat:hover { background: #fff; box-shadow: 0 0 0 2px rgba(255, 255, 255, .5); }
+/* มือถือ: เลื่อนแนวนอนในแถบเดียว ไม่ดันหน้าให้ยาว */
+@media (max-width: 640px) {
+  .sd-filters { flex-wrap: nowrap; overflow-x: auto; margin: 0 -12px 10px; padding: 2px 12px 6px; scrollbar-width: none; }
+  .sd-filters::-webkit-scrollbar { display: none; }
+  .sd-filter { flex-shrink: 0; }
+}
+/* หมวดย่อย: แดชบอร์ด (เลือกได้หลายอัน) */
+.subcat-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.subcat-chip {
+  padding: 6px 13px; border-radius: 999px; border: 1px solid var(--line); background: var(--card2); color: var(--text);
+  font: inherit; font-size: calc(13px * var(--text-scale)); cursor: pointer; transition: border-color .15s, background .15s;
+}
+.subcat-chip:hover:not(:disabled) { border-color: var(--plan-blue); }
+.subcat-chip.on { background: var(--plan-blue); border-color: var(--plan-blue); color: #fff; }
+.subcat-chip.on::before { content: '✓ '; }
+.subcat-chip:disabled { opacity: .4; cursor: not-allowed; }
+
+/* หน้าสตรีมเมอร์: ป้ายหมวดย่อยบนการ์ด/โปรไฟล์ */
+.sd-subs { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+.sd-sub { padding: 1px 8px; border-radius: 6px; border: 1px solid var(--line); background: var(--card2); color: var(--muted); font: inherit; font-size: calc(11.5px * var(--text-scale)); cursor: pointer; }
+button.sd-sub:hover { border-color: var(--plan-blue); color: var(--text); }
+.sd-sub.more { cursor: default; }
+#spCat { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+.pill.sp-sub { opacity: .8; }
+
+/* หน้าสตรีมเมอร์: แถบหมวดหลักแบบ Twitch (ปุ่มใหญ่ ชื่อซ้าย ไอคอนขวา) — ไล่สีน้ำเงินของเว็บ */
+.sd-catbar { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; margin: 0 0 22px; padding-top: 6px; }
+.sd-cattile {
+  position: relative; display: flex; align-items: center; justify-content: space-between; gap: 8px; height: 66px; padding: 0 10px 0 16px;
+  border-radius: 12px; border: 2px solid transparent; background: linear-gradient(135deg, #1f3fd1 0%, #4d6bff 100%); color: #fff;
+  font: inherit; text-align: left; cursor: pointer; box-shadow: 0 6px 16px rgba(31, 63, 209, .22); transition: transform .15s, box-shadow .15s, filter .15s;
+}
+.sd-cattile:hover { transform: translateY(-2px); box-shadow: 0 10px 22px rgba(31, 63, 209, .32); }
+.sd-cattile:focus-visible { outline: 2px solid var(--plan-blue); outline-offset: 3px; }
+.sd-cattile.active { border-color: #fff; box-shadow: 0 0 0 2px var(--plan-blue), 0 10px 22px rgba(31, 63, 209, .35); background: linear-gradient(135deg, #1a32b8 0%, #3d5cff 100%); }
+.sd-catbar:has(.sd-cattile.active) .sd-cattile:not(.active) { filter: saturate(.75) brightness(.92); }
+.sd-cattile-text { min-width: 0; }
+.sd-cattile-text b { display: block; font-size: calc(17px * var(--text-scale)); font-weight: 700; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sd-cattile-text small { display: block; font-size: calc(12px * var(--text-scale)); opacity: .8; }
+.sd-cattile-ic { flex-shrink: 0; display: flex; color: #fff; transform: rotate(-10deg) translateY(-4px); }
+.sd-cattile-ic svg { width: 46px; height: 46px; filter: drop-shadow(0 3px 6px rgba(0, 0, 0, .25)); }
+
+/* "หมวดหมู่…ที่แนะนำ": การ์ดหมวดย่อยแนวตั้ง เลื่อนแนวนอน */
+.sd-subsec { margin: -6px 0 26px; }
+.sd-subsec[hidden] { display: none; }
+.sd-subsec-title { margin: 0 0 10px; font-size: calc(15px * var(--text-scale)); font-weight: 700; }
+.sd-subgrid { display: flex; gap: 12px; overflow-x: auto; padding: 4px 2px 8px; scroll-snap-type: x proximity; scroll-padding-inline: 2px; scrollbar-width: thin; }
+.sd-subcard { flex: 0 0 136px; display: flex; flex-direction: column; gap: 6px; padding: 0; border: 0; background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; scroll-snap-align: start; }
+.sd-subcard:focus-visible { outline: none; }
+.sd-subcard:focus-visible .sd-subcard-art { outline: 2px solid var(--plan-blue); outline-offset: 2px; }
+.sd-subcard-art {
+  position: relative; display: flex; align-items: center; justify-content: center; aspect-ratio: 3 / 4; border-radius: 10px; overflow: hidden;
+  border: 3px solid transparent; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .08); transition: transform .15s, border-color .15s, box-shadow .15s;
+}
+.sd-subcard-art::after { content: ''; position: absolute; inset: 0; background: radial-gradient(circle at 30% 20%, rgba(255, 255, 255, .22), transparent 55%); pointer-events: none; }
+.sd-subcard:hover .sd-subcard-art { transform: translateY(-3px); }
+.sd-subcard.active .sd-subcard-art { border-color: #fff; box-shadow: 0 0 0 2px var(--plan-blue); }
+.sd-subcard-emoji { font-size: 54px; line-height: 1; filter: drop-shadow(0 4px 10px rgba(0, 0, 0, .3)); }
+.sd-subcard-n { position: absolute; left: 7px; bottom: 7px; z-index: 1; padding: 1px 8px; border-radius: 6px; background: rgba(10, 10, 20, .55); color: #fff; font-size: calc(11.5px * var(--text-scale)); font-weight: 700; }
+.sd-subcard-name { font-size: calc(13px * var(--text-scale)); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sd-subcard.active .sd-subcard-name { color: var(--plan-blue); }
+.sd-subcard.empty .sd-subcard-art { opacity: .45; filter: saturate(.6); }
+.sd-subcard.empty .sd-subcard-name { color: var(--muted); font-weight: 500; }
+
+@media (max-width: 860px) {
+  .sd-catbar { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(150px, 1fr); overflow-x: auto; margin: 0 -12px 20px; padding: 6px 12px; scrollbar-width: none; }
+  .sd-catbar::-webkit-scrollbar { display: none; }
+}
+@media (max-width: 640px) {
+  .sd-cattile { height: 58px; }
+  .sd-cattile-ic svg { width: 38px; height: 38px; }
+  .sd-subgrid { margin: 0 -12px; padding: 4px 12px 8px; scroll-padding-inline: 12px; }
+  .sd-subcard { flex-basis: 108px; }
+  .sd-subcard-emoji { font-size: 42px; }
+}
+
+/* การ์ดหมวดย่อยแบบมีรูป: รูปเต็มกรอบการ์ด */
+.sd-subcard-art.has-img { background: #0b1020 !important; }
+.sd-subcard-art.has-img::after { background: linear-gradient(180deg, transparent 60%, rgba(0, 0, 0, .35)); }
+.sd-subcard-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center; transition: transform .2s; }
+.sd-subcard:hover .sd-subcard-img { transform: scale(1.04); }.sd-subcard { min-width: 0; }   /* ชื่อยาว (nowrap) ไม่ดันให้การ์ดกว้าง/สูงกว่าใบอื่น */
+.sd-subcard.empty .sd-subcard-art.has-img { opacity: .85; filter: none; }
+/* ป้ายหมวดย่อยบนการ์ด: โทนน้ำเงินของเว็บ + รูปเล็กของหมวดย่อย ให้เห็นชัดทั้งธีมมืด/สว่าง */
+.sd-subs { gap: 6px; margin-top: 8px; }
+.sd-sub {
+  display: inline-flex; align-items: center; gap: 5px; max-width: 100%; padding: 2px 9px 2px 3px; border-radius: 999px;
+  border: 1px solid rgba(77, 107, 255, .35); background: rgba(77, 107, 255, .14); color: var(--text);
+  font-size: calc(12px * var(--text-scale)); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+button.sd-sub:hover { border-color: var(--plan-blue); background: rgba(77, 107, 255, .24); color: var(--text); }
+.sd-sub-ic { flex-shrink: 0; width: 18px; height: 18px; border-radius: 50%; object-fit: cover; }
+.sd-sub-ic.emoji { display: inline-flex; align-items: center; justify-content: center; font-size: 11px; background: rgba(77, 107, 255, .25); }
+.sd-sub.more { padding: 2px 9px; color: var(--muted); }
+:root[data-theme="light"] .sd-sub { background: #eef1ff; border-color: #c9d3ff; color: #1f3fd1; }
+:root[data-theme="light"] button.sd-sub:hover { background: #e0e6ff; border-color: #1f3fd1; color: #1f3fd1; }
+:root[data-theme="light"] .sd-sub.more { color: #5f5f6a; }
+/* ป้ายหมวดย่อยบนการ์ด: ขนาดใหญ่ขึ้น */
+.sd-subs { gap: 7px; margin-top: 10px; }
+.sd-sub { gap: 7px; padding: 4px 12px 4px 4px; font-size: calc(13.5px * var(--text-scale)); }
+.sd-sub-ic { width: 26px; height: 26px; }
+.sd-sub-ic.emoji { font-size: 15px; }
+.sd-sub.more { padding: 4px 12px; }
+/* การ์ดสตรีมเมอร์: กล่อง "ไลฟ์ถัดไป" แยกจากส่วนอื่น มีระยะห่างบน-ล่าง อ่านง่าย */
+.sd-next { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; margin: 12px 0 4px; padding: 10px 12px; border-radius: 12px; background: var(--card2); border: 1px solid var(--line); }
+.sd-next-label { font-size: calc(12px * var(--text-scale)); font-weight: 600; color: var(--muted); }
+.sd-next-time { font-size: calc(14.5px * var(--text-scale)); font-weight: 700; line-height: 1.4; color: var(--text); }
+.sd-next-time.small { font-size: calc(13px * var(--text-scale)); font-weight: 600; }
+.sd-next .sd-live-count { margin-top: 4px; }
+.sd-next + .sd-bio { margin-top: 8px; }.sd-next .sd-live-count { max-width: 100%; white-space: normal; overflow: visible; line-height: 1.4; padding-top: 3px; padding-bottom: 3px; }.sd-next .sd-live-count { border-radius: 8px; }
+
+/* การ์ดสตรีมเมอร์: จัดสัดส่วน — ระยะห่างเท่ากันทุกส่วน, ป้ายหมวดย่อยแถวละ 2, โซเชียลชิดล่างทุกการ์ด */
+.sd-body { flex: 1; gap: 10px; padding: 12px 18px 18px; }
+.sd-body > * { margin-top: 0 !important; margin-bottom: 0 !important; }
+.sd-name { line-height: 1.3; }
+.sd-subs { gap: 6px; }
+.sd-sub { gap: 5px; padding: 3px 10px 3px 3px; font-size: calc(12.5px * var(--text-scale)); }
+.sd-sub-ic { width: 20px; height: 20px; }
+.sd-sub-ic.emoji { font-size: 12px; }
+.sd-sub.more { padding: 3px 10px; }
+.sd-next { gap: 3px; padding: 10px 12px; }
+.sd-socials { margin-top: auto !important; padding-top: 2px; }
+@media (max-width: 520px) {
+  .sd-body { gap: 8px; padding: 10px 12px 14px; }
+  .sd-next { padding: 8px 10px; }
+  .sd-next-time { font-size: calc(13.5px * var(--text-scale)); }
+}/* นับถอยหลังในกล่องไลฟ์ถัดไป: ข้อความสีน้ำเงิน ไม่มีพื้นป้าย — ประหยัดที่ ไม่หักบรรทัด */
+.sd-next .sd-live-count { margin-top: 1px; padding: 0; border-radius: 0; background: none; font-size: calc(12px * var(--text-scale)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 520px) {
+  .sd-next-label { font-size: calc(11px * var(--text-scale)); }
+  .sd-next-time { font-size: calc(12.5px * var(--text-scale)); }
+  .sd-next .sd-live-count { font-size: calc(11px * var(--text-scale)); white-space: normal; }
+}.sd-next-time .nowrap { white-space: nowrap; }
+
+/* การ์ด: กระชับขึ้น — ป้ายหมวดย่อยแถวเดียว, กล่องไลฟ์ถัดไป 2 บรรทัด ตัวเวลาไม่ใหญ่เกิน */
+.sd-subs { flex-wrap: nowrap; overflow: hidden; }
+.sd-sub { min-width: 0; flex-shrink: 1; }
+.sd-sub.more { flex-shrink: 0; }
+.sd-next { gap: 2px; padding: 8px 10px; border-radius: 10px; }
+.sd-next-time { font-size: calc(13px * var(--text-scale)); font-weight: 600; line-height: 1.4; }
+.sd-next .sd-live-count { font-size: calc(12px * var(--text-scale)); }
+@media (max-width: 520px) {
+  .sd-next { padding: 7px 9px; }
+  .sd-next-time { font-size: calc(12px * var(--text-scale)); }
+}
+/* โปรไฟล์ป๊อปอัป (หน้าสตรีมเมอร์): รูปปกด้านบน + รูปโปรไฟล์ซ้อนบนปก */
+.modal-box.sp-box { --sp-pt: 30px; --sp-px: 26px; padding: var(--sp-pt) var(--sp-px) 24px; }
+.sp-cover { height: 130px; margin: calc(-1 * var(--sp-pt)) calc(-1 * var(--sp-px)) 0; background-size: cover; background-position: center; position: relative; }
+.sp-cover::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0, 0, 0, .18), transparent 45%); }
+.sp-box .sp-top { position: relative; margin-top: -50px; }
+.sp-box .sp-avatar { border: 4px solid var(--card); box-shadow: 0 6px 18px rgba(0, 0, 0, .18); }
+.sp-box img.sp-avatar { background: var(--card2); }
+.sp-box .modal-close { z-index: 2; top: 12px; right: 12px; width: 34px; height: 34px; padding: 0; border-radius: 50%; background: rgba(10, 10, 20, .45); color: #fff; font-size: 18px; display: flex; align-items: center; justify-content: center; }
+.sp-box .modal-close:hover { background: rgba(10, 10, 20, .65); color: #fff; }
+@media (max-width: 640px) {
+  .modal-box.sp-box { --sp-pt: 22px; --sp-px: 18px; }
+  .sp-cover { height: 110px; }
+}
+/* ปุ่ม "ดูทั้งหมด" ที่หัวข้อสตรีมเมอร์ทั้งหมด (เป็น button) */
+button.sd-all-btn { font-family: inherit; cursor: pointer; }
+.sd-all-btn[hidden] { display: none; }

@@ -15,7 +15,7 @@ let ME, STICKERS = [];
   document.getElementById('acctDisplayName').textContent = ME.display_name || ME.username;
   document.getElementById('acctRoleLabel').textContent = '@' + ME.username + ' · ' + roleLabel(ME.role);
   renderAvatar();
-  document.getElementById('p_category').value = ME.creator_category || '';
+  initCategoryPicker();
   document.getElementById('p_bio').value = ME.bio || '';
   document.getElementById('bioCount').textContent = (ME.bio || '').length + '/160';
   initSocialModal();
@@ -55,23 +55,15 @@ let ME, STICKERS = [];
       toast('บันทึกแล้ว');
     } catch (e) { toast(e.message, false); }
   };
+  // โปรไฟล์สาธารณะบันทึกอัตโนมัติ: พิมพ์ bio → รอหยุดพิมพ์ก่อน (หมวด / หมวดย่อย บันทึกใน initCategoryPicker)
   document.getElementById('p_bio').oninput = (e) => {
     document.getElementById('bioCount').textContent = e.target.value.length + '/160';
+    scheduleProfileSave(800);
   };
-  document.getElementById('saveBio').onclick = async () => {
-    try {
-      await api('/api/me', {
-        method: 'PATCH',
-        body: {
-          bio: document.getElementById('p_bio').value,
-          creator_category: document.getElementById('p_category').value,
-        },
-      });
-      ME.bio = document.getElementById('p_bio').value;
-      ME.creator_category = document.getElementById('p_category').value;
-      toast('บันทึกโปรไฟล์สาธารณะแล้ว');
-    } catch (e) { toast(e.message, false); }
-  };
+  window.addEventListener('beforeunload', () => {
+    if (!profileSaveTimer) return;
+    fetch('/api/me', { method: 'PATCH', keepalive: true, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(collectProfile()) });
+  });
   document.getElementById('saveEmail').onclick = async () => {
     const email = document.getElementById('acctEmail').value.trim();
     const out = document.getElementById('emailOut');
@@ -597,10 +589,258 @@ async function initStreamer() {
   });
 
   initQrPayments();
+  initLiveCard();
 
   loadAllTransactions();
   loadSupporters();
   initStats();
+}
+
+// ---------- หมวดหมู่ครีเอเตอร์: หมวดหลัก (select) + หมวดย่อย (กดเลือกได้หลายอัน) ----------
+const CAT_PICK = { list: [], max: 5, subs: [] };
+
+async function initCategoryPicker() {
+  const sel = document.getElementById('p_category');
+  const r = await api('/api/public/categories').catch(() => null);
+  if (r) { CAT_PICK.list = r.categories; CAT_PICK.max = r.max_subs; }
+  CAT_PICK.list.forEach((c) => sel.append(el('option', { value: c.name }, c.name)));
+  // หมวดเดิมที่ไม่มีในรายการแล้ว → คงไว้ในตัวเลือก ไม่ให้หายตอนกดบันทึก bio
+  if (ME.creator_category && !CAT_PICK.list.some((c) => c.name === ME.creator_category)) {
+    sel.append(el('option', { value: ME.creator_category }, ME.creator_category));
+  }
+  sel.value = ME.creator_category || '';
+  // เก็บเฉพาะหมวดย่อยที่ยังมีในรายการ (หมวดย่อยที่ถูกเอาออกแล้วส่งกลับไปจะบันทึกไม่ผ่าน)
+  const curCat = CAT_PICK.list.find((c) => c.name === ME.creator_category);
+  CAT_PICK.subs = (ME.creator_subcategories || []).filter((s) => !curCat || curCat.subs.includes(s));
+  // เปลี่ยนหมวดหลัก = ล้างหมวดย่อยที่เลือกไว้ (หมวดย่อยเป็นของหมวดหลักแต่ละอัน)
+  sel.onchange = () => { CAT_PICK.subs = []; renderSubcats(); scheduleProfileSave(150); };
+  renderSubcats();
+  CAT_PICK.ready = true;
+}
+
+// ---------- โปรไฟล์สาธารณะ: บันทึกอัตโนมัติ (หมวด / หมวดย่อย / bio) ----------
+let profileSaveTimer = null;
+let profileSaveChain = Promise.resolve();
+
+// รายการหมวดยังโหลดไม่เสร็จ (select ยังว่าง) → ส่งแค่ bio ไม่อย่างนั้นจะไปทับหมวดเดิมเป็นค่าว่าง
+function collectProfile() {
+  const body = { bio: document.getElementById('p_bio').value };
+  if (CAT_PICK.ready) {
+    body.creator_category = document.getElementById('p_category').value;
+    body.creator_subcategories = CAT_PICK.subs;
+  }
+  return body;
+}
+
+function scheduleProfileSave(delay) {
+  clearTimeout(profileSaveTimer);
+  setSaveStatus('pfSaveStatus', 'pending');
+  profileSaveTimer = setTimeout(() => {
+    profileSaveTimer = null;
+    // ส่งทีละคำขอ กันคำขอเก่ามาถึงทีหลังแล้วทับค่าใหม่
+    profileSaveChain = profileSaveChain.then(saveProfile);
+  }, delay);
+}
+
+async function saveProfile() {
+  const body = collectProfile();
+  setSaveStatus('pfSaveStatus', 'saving');
+  try {
+    await api('/api/me', { method: 'PATCH', body });
+    ME.bio = body.bio;
+    if ('creator_category' in body) {
+      ME.creator_category = body.creator_category;
+      ME.creator_subcategories = body.creator_subcategories.slice();
+    }
+    setSaveStatus('pfSaveStatus', 'saved');
+  } catch (e) {
+    setSaveStatus('pfSaveStatus', 'error', e.message);
+    toast(e.message, false);
+  }
+}
+
+function renderSubcats() {
+  const cat = CAT_PICK.list.find((c) => c.name === document.getElementById('p_category').value);
+  const wrap = document.getElementById('p_subWrap');
+  wrap.hidden = !cat || !cat.subs.length;
+  if (wrap.hidden) return;
+  const box = document.getElementById('p_subcats');
+  box.innerHTML = '';
+  const full = CAT_PICK.subs.length >= CAT_PICK.max;
+  cat.subs.forEach((s) => {
+    const on = CAT_PICK.subs.includes(s);
+    const b = el('button', { type: 'button', class: 'subcat-chip' + (on ? ' on' : ''), 'aria-pressed': String(on) }, s);
+    if (!on && full) b.disabled = true;
+    b.onclick = () => {
+      CAT_PICK.subs = on ? CAT_PICK.subs.filter((x) => x !== s) : cat.subs.filter((x) => x === s || CAT_PICK.subs.includes(x));
+      renderSubcats();
+      scheduleProfileSave(150);
+    };
+    box.append(b);
+  });
+  document.getElementById('p_subHint').textContent = `(เลือกได้สูงสุด ${CAT_PICK.max} · เลือกแล้ว ${CAT_PICK.subs.length})`;
+}
+
+// ---------- สถานะไลฟ์ + ตารางไลฟ์ (src/live.js) ----------
+const LV_DAY_ORDER = [1, 2, 3, 4, 5, 6, 0];
+
+async function initLiveCard() {
+  const st = await api('/api/streamer/live').catch(() => null);
+  if (!st) return;
+  const days = document.getElementById('lvDays');
+  days.innerHTML = '';
+  LV_DAY_ORDER.forEach((d) => {
+    const s = st.schedule.find((x) => x.day === d);
+    const on = el('input', { type: 'checkbox', 'data-day': d });
+    on.checked = !!s;
+    const start = timeInput(s ? s.start : '20:00', 'lv-start', 'เวลาเริ่ม วัน' + LIVE_DAYS[d]);
+    const end = timeInput(s ? s.end : '23:00', 'lv-end', 'เวลาจบ วัน' + LIVE_DAYS[d]);
+    const hint = el('span', { class: 'lv-hint-row' });
+    const row = el('div', { class: 'lv-day' + (s ? '' : ' off') },
+      el('label', { class: 'lv-day-name' }, on, LIVE_DAYS[d]),
+      el('span', { class: 'muted lv-from' }, 'เริ่ม'), start.wrap, el('span', { class: 'muted' }, 'ถึง'), end.wrap, hint);
+    // จบก่อนเวลาเริ่ม = ไลฟ์ข้ามเที่ยงคืน จบวันถัดไป
+    const syncHint = () => {
+      const a = parseTime(start.input.value), b = parseTime(end.input.value);
+      hint.textContent = a && b && b < a ? '(จบวันถัดไป)' : '';
+    };
+    on.onchange = () => row.classList.toggle('off', !on.checked);
+    [start.input, end.input].forEach((i) => i.addEventListener('input', syncHint));
+    syncHint();
+    days.append(row);
+  });
+  // รายการเวลาให้กดเลือก (ทุกครึ่งชั่วโมง) — ช่องเวลาทุกช่องใช้ร่วมกัน พิมพ์เวลาอื่นเองก็ได้
+  const list = el('datalist', { id: 'lvTimeList' });
+  for (let h = 0; h < 24; h++) for (const m of ['00', '30']) {
+    const t = String(h).padStart(2, '0') + ':' + m;
+    list.append(el('option', { value: t, label: thaiClock(t) }));
+  }
+  days.append(list);
+  document.getElementById('lvNote').value = st.schedule_note || '';
+  document.getElementById('lvMode').value = st.live_mode;
+  renderLiveNow(st);
+
+  // บันทึกอัตโนมัติ: ติ๊กวัน / เปลี่ยนเวลา / เลือกวิธีแสดงสถานะ → บันทึกเกือบทันที, พิมพ์หมายเหตุ → รอหยุดพิมพ์ก่อน
+  const card = document.getElementById('liveCard');
+  card.addEventListener('change', () => scheduleLiveSave(150));
+  document.getElementById('lvNote').addEventListener('input', () => scheduleLiveSave(800));
+  // พิมพ์เวลาครบแล้ว (เช่น 20:15) → บันทึกเมื่อหยุดพิมพ์ ไม่ต้องรอออกจากช่อง; ยังพิมพ์ไม่ครบไม่ต้องเตือน
+  days.addEventListener('input', (e) => {
+    const v = e.target.value.trim();
+    if (e.target.matches('.lv-start, .lv-end') && /^(\d{1,2}[:.\s]\d{2}|\d{4})$/.test(v) && parseTime(v)) scheduleLiveSave(1000);
+  });
+  window.addEventListener('beforeunload', () => {
+    if (!liveSaveTimer) return;
+    const body = collectLiveSettings();
+    if (body) fetch('/api/streamer/live', { method: 'PUT', keepalive: true, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  });
+}
+
+// เวลาแบบที่คนไทยพูด: 20:00 → "2 ทุ่ม", 13:30 → "บ่ายโมงครึ่ง", 01:00 → "ตี 1"
+function thaiClock(hhmm) {
+  const h = +hhmm.slice(0, 2), m = +hhmm.slice(3, 5);
+  let s;
+  if (h === 0) s = 'เที่ยงคืน';
+  else if (h <= 5) s = 'ตี ' + h;
+  else if (h <= 10) s = h + ' โมงเช้า';
+  else if (h === 11) s = '11 โมง';
+  else if (h === 12) s = 'เที่ยง';
+  else if (h === 13) s = 'บ่ายโมง';
+  else if (h <= 15) s = 'บ่าย ' + (h - 12);
+  else if (h <= 18) s = (h - 12) + ' โมงเย็น';
+  else s = (h - 18) + ' ทุ่ม';
+  if (m === 30) return s + 'ครึ่ง';
+  return m ? `${s} ${m} นาที` : s;
+}
+
+// เวลาที่พิมพ์เอง → "HH:MM" (24 ชม.) หรือ null ถ้าไม่ถูกต้อง
+// รับได้หลายแบบ: 20:00, 20.00, 20 00, 2000, 930 (= 09:30), 20 (= 20:00), 9 (= 09:00)
+function parseTime(text) {
+  const t = String(text || '').trim();
+  let m = t.match(/^(\d{1,2})\s*[:.\s]\s*(\d{1,2})$/);
+  if (!m) m = t.match(/^(\d{1,2})(\d{2})$/);
+  if (!m) m = t.match(/^(\d{1,2})()$/);
+  if (!m) return null;
+  const h = +m[1], min = m[2] === '' ? 0 : +m[2];
+  if (h > 23 || min > 59) return null;
+  return String(h).padStart(2, '0') + ':' + String(min).padStart(2, '0');
+}
+
+// ช่องเวลา 24 ชม.: พิมพ์เองได้ หรือกดเลือกจากรายการ — ข้างช่องบอกเวลาแบบไทย (ไม่ขึ้น AM/PM ตามภาษาเบราว์เซอร์)
+function timeInput(value, cls, label) {
+  const input = el('input', {
+    type: 'text', class: cls, value, list: 'lvTimeList', inputmode: 'decimal', maxlength: '5',
+    placeholder: 'เช่น 20:00', autocomplete: 'off', 'aria-label': label,
+  });
+  const say = el('span', { class: 'lv-say' });
+  const sync = () => {
+    const t = parseTime(input.value);
+    input.classList.toggle('invalid', !t && input.value.trim() !== '');
+    say.textContent = t ? thaiClock(t) : input.value.trim() ? 'เวลาไม่ถูกต้อง' : '';
+  };
+  input.addEventListener('input', sync);
+  // ออกจากช่อง / กด Enter → จัดรูปให้เป็น HH:MM (เช่น 2000 → 20:00)
+  input.addEventListener('change', () => { const t = parseTime(input.value); if (t) input.value = t; sync(); });
+  sync();
+  return { input, wrap: el('span', { class: 'lv-time' }, input, say) };
+}
+
+// ค่าในการ์ด → body ของ PUT /api/streamer/live (null = เวลายังไม่ครบ/ไม่ถูกต้อง ยังไม่บันทึก)
+function collectLiveSettings() {
+  const schedule = [...document.querySelectorAll('#lvDays .lv-day')]
+    .filter((row) => row.querySelector('[data-day]').checked)
+    .map((row) => ({
+      day: +row.querySelector('[data-day]').dataset.day,
+      start: parseTime(row.querySelector('.lv-start').value),
+      end: parseTime(row.querySelector('.lv-end').value),
+    }));
+  const bad = schedule.find((s) => !s.start || !s.end || s.start === s.end);
+  if (bad) {
+    const why = !bad.start || !bad.end ? 'พิมพ์เวลาแบบ 24 ชม. เช่น 20:00' : 'เวลาเริ่มกับเวลาจบต้องไม่ซ้ำกัน';
+    setSaveStatus('lvSaveStatus', 'error', `วัน${LIVE_DAYS[bad.day]}: ${why} (ยังไม่บันทึก)`);
+    return null;
+  }
+  return { live_mode: document.getElementById('lvMode').value, schedule, schedule_note: document.getElementById('lvNote').value };
+}
+
+let liveSaveTimer = null;
+let liveSaveChain = Promise.resolve();
+
+function scheduleLiveSave(delay) {
+  clearTimeout(liveSaveTimer);
+  setSaveStatus('lvSaveStatus', 'pending');
+  liveSaveTimer = setTimeout(() => {
+    liveSaveTimer = null;
+    // ส่งทีละคำขอ กันคำขอเก่ามาถึงทีหลังแล้วทับค่าใหม่
+    liveSaveChain = liveSaveChain.then(saveLiveSettings);
+  }, delay);
+}
+
+async function saveLiveSettings() {
+  const body = collectLiveSettings();
+  if (!body) return;
+  setSaveStatus('lvSaveStatus', 'saving');
+  try {
+    renderLiveNow(await api('/api/streamer/live', { method: 'PUT', body }));
+    setSaveStatus('lvSaveStatus', 'saved');
+  } catch (e) {
+    setSaveStatus('lvSaveStatus', 'error');
+    toast(e.message, false);
+  }
+}
+
+function renderLiveNow(st) {
+  const box = document.getElementById('lvNow');
+  if (!box || !st) return;
+  let how;
+  if (st.live_mode === 'online') how = 'ตั้งเองให้แสดงว่ากำลังไลฟ์';
+  else if (st.live_mode === 'offline') how = 'ตั้งเองให้แสดงว่าออฟไลน์';
+  else if (!st.obs_connected) how = 'ยังไม่พบ Overlay ที่เปิดใน OBS';
+  else if (st.obs_streaming) how = 'OBS กำลังสตรีมอยู่';
+  else if (st.obs_unknown) how = 'เปิด OBS อยู่ (OBS ไม่บอกสถานะสตรีม จึงถือว่ากำลังไลฟ์)';
+  else how = 'เปิด OBS อยู่ แต่ยังไม่ได้เริ่มสตรีม';
+  box.innerHTML = '';
+  box.append(el('span', { class: 'muted' }, 'ผู้ชมเห็นตอนนี้:'), liveBadge(st), el('span', { class: 'muted' }, '· ' + how));
 }
 
 // ---------- QR พร้อมเพย์รับโดเนท: อ่าน QR จากรูป (jsQR) → ส่งข้อความใน QR ให้เซิร์ฟเวอร์ตรวจ + บันทึก ----------
@@ -826,6 +1066,8 @@ function initRealtime() {
     loadQrReview();
     if (window.refreshNotifications) window.refreshNotifications();
   });
+  // OBS เริ่ม/หยุดสตรีม หรือเปิด/ปิด Overlay → อัปเดตสถานะไลฟ์ในการ์ดทันที
+  socket.on('live:status', (st) => { if (ME.role !== 'donor') renderLiveNow(st); });
 }
 
 // ---------- ทุกธุรกรรม: ค้นหา / เรียงลำดับ / ตอบกลับ / export ----------
@@ -1138,11 +1380,14 @@ async function saveOverlaySettings() {
   }
 }
 
-function setOverlaySaveStatus(state) {
-  const box = document.getElementById('ovSaveStatus');
+function setOverlaySaveStatus(state) { setSaveStatus('ovSaveStatus', state); }
+
+// ป้ายลอย "บันทึกอัตโนมัติ" ด้านล่างจอ (ใช้ทั้งหน้า Overlay และการ์ดตารางไลฟ์) — msg ใช้แทนข้อความมาตรฐานได้
+function setSaveStatus(id, state, msg) {
+  const box = document.getElementById(id);
   if (!box) return;
   const label = { pending: 'มีการเปลี่ยนแปลง…', saving: 'กำลังบันทึก…', saved: '✓ บันทึกอัตโนมัติแล้ว', error: '✕ บันทึกไม่สำเร็จ' }[state];
-  box.textContent = label;
+  box.textContent = msg ? (state === 'error' ? '✕ ' : '') + msg : label;
   box.className = 'autosave-status show ' + state;
   clearTimeout(box._hide);
   if (state === 'saved') box._hide = setTimeout(() => box.classList.remove('show'), 2000);

@@ -245,23 +245,145 @@ function timeAgo(ts) {
   return new Date(ts).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
+// ---------- สถานะไลฟ์ + ตารางไลฟ์ (หน้าโดเนท / หน้าสตรีมเมอร์) — ข้อมูลจาก src/live.js publicView ----------
+const LIVE_DAYS = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์'];
+const WEEK_MIN = 7 * 1440;
+
+// ตารางไลฟ์เป็นเวลาไทยเสมอ ไม่ว่าผู้ชมเปิดจากโซนเวลาไหน
+function bkkNow() {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Bangkok', weekday: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+  }).formatToParts(new Date());
+  const get = (t) => (parts.find((p) => p.type === t) || {}).value;
+  return { day: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(get('weekday')), min: +get('hour') * 60 + +get('minute') };
+}
+
+// current = ช่วงเวลาตามตารางที่กำลังอยู่ตอนนี้, next = ช่วงถัดไป, inDays = อีกกี่วัน (0 = วันนี้)
+// ช่วงที่เวลาจบน้อยกว่าเวลาเริ่ม (เช่น 22:00–02:00) = ข้ามเที่ยงคืน
+function scheduleNext(schedule) {
+  if (!schedule || !schedule.length) return {};
+  const toMin = (t) => +t.slice(0, 2) * 60 + +t.slice(3, 5);
+  const { day, min } = bkkNow();
+  const nowAbs = day * 1440 + min;
+  let current = null, next = null, best = Infinity;
+  for (const s of schedule) {
+    const start = s.day * 1440 + toMin(s.start);
+    let end = s.day * 1440 + toMin(s.end);
+    if (end <= start) end += 1440;
+    if ([0, -WEEK_MIN].some((off) => nowAbs >= start + off && nowAbs < end + off)) current = s;
+    let diff = start - nowAbs;
+    if (diff <= 0) diff += WEEK_MIN;
+    if (diff < best) { best = diff; next = s; }
+  }
+  return { current, next, inDays: Math.floor((min + best) / 1440), minutes: best };
+}
+
+// นับถอยหลังถึงไลฟ์ถัดไปตามตาราง: "อีก 1 วัน 3 ชั่วโมง 20 นาที" — กำลังไลฟ์ / อยู่ในช่วงเวลาไลฟ์ / ไม่มีตาราง = ''
+// short = ย่อหน่วย (ชม.) สำหรับที่แคบอย่างการ์ด
+function liveCountdown(live, short) {
+  if (!live || live.live) return '';
+  const { current, next, minutes } = scheduleNext(live.schedule);
+  if (current || !next) return '';
+  const d = Math.floor(minutes / 1440), h = Math.floor((minutes % 1440) / 60), m = minutes % 60;
+  const parts = [];
+  if (d) parts.push(d + ' วัน');
+  if (h) parts.push(h + (short ? ' ชม.' : ' ชั่วโมง'));
+  if (m) parts.push(m + ' นาที');
+  return 'อีก ' + (parts.join(' ') || 'ไม่ถึง 1 นาที');
+}
+
+function liveCountdownEl(live, cls, short) {
+  const t = liveCountdown(live, short);
+  return t ? el('span', { class: 'live-countdown' + (cls ? ' ' + cls : '') }, '⏳ ' + t) : null;
+}
+
+function liveBadge(live) {
+  return el('span', { class: 'live-badge' + (live && live.live ? ' on' : '') }, el('i'), live && live.live ? 'กำลังไลฟ์' : 'ออฟไลน์');
+}
+
+// บรรทัดใต้ป้าย: ตอนออฟไลน์บอกว่าจะไลฟ์อีกเมื่อไร / ไลฟ์ล่าสุดเมื่อไร
+function liveSubText(live) {
+  if (!live || live.live) return '';
+  const { current, next, inDays } = scheduleNext(live.schedule);
+  if (current) return `ถึงเวลาไลฟ์ตามตาราง (${current.start}–${current.end} น.) รอสตรีมเมอร์เริ่มไลฟ์`;
+  if (next) {
+    const when = inDays === 0 ? 'วันนี้' : inDays === 1 ? 'พรุ่งนี้' : 'วัน' + LIVE_DAYS[next.day];
+    return `ไลฟ์ถัดไป: ${when} ${next.start}–${next.end} น.`;
+  }
+  return live.last_live_at ? 'ไลฟ์ล่าสุด ' + timeAgo(live.last_live_at) : '';
+}
+
+// ตารางไลฟ์ 7 วัน (เริ่มวันจันทร์) ไฮไลต์วันนี้ + หมายเหตุ — ไม่มีทั้งตารางและหมายเหตุ = null
+function liveScheduleEl(live) {
+  const sch = (live && live.schedule) || [];
+  const note = (live && live.schedule_note) || '';
+  if (!sch.length && !note) return null;
+  const box = el('div', { class: 'live-sched' });
+  if (sch.length) {
+    const today = bkkNow().day;
+    const list = el('ul', { class: 'live-sched-list' });
+    [1, 2, 3, 4, 5, 6, 0].forEach((d) => {
+      const s = sch.find((x) => x.day === d);
+      list.append(el('li', { class: [d === today ? 'today' : '', s ? '' : 'off'].join(' ').trim() },
+        el('span', {}, LIVE_DAYS[d] + (d === today ? ' (วันนี้)' : '')),
+        el('b', {}, s ? `${s.start}–${s.end} น.` : 'ไม่ไลฟ์')));
+    });
+    box.append(list);
+  }
+  if (note) box.append(el('div', { class: 'live-sched-note' }, '📌 ' + note));
+  return box;
+}
+
 // แจ้งเตือนแบบ realtime: โหลด socket.io client เอง (บางหน้าไม่ได้ใส่ไว้) แล้วเด้ง toast + อัปเดตกระดิ่งทันที
 function listenNotifications(reload) {
-  const start = () => {
-    const socket = window.io({ transports: ['websocket', 'polling'] });
-    window.appSocket = socket;
-    (window.__socketWaiters || []).forEach((f) => f(socket));
+  ensureAppSocket().then((socket) => {
     socket.on('notify:new', (n) => {
       reload();
       showNotifPopup(n);
     });
-  };
-  if (window.io) return start();
-  const s = document.createElement('script');
-  s.src = '/socket.io/socket.io.js';
-  s.onload = start;
-  document.head.append(s);
+  });
 }
+
+// socket เดียวต่อหน้า (กระดิ่งแจ้งเตือน + สถานะไลฟ์ใช้ร่วมกัน) — ผู้ชมที่ไม่ได้ล็อกอินก็เชื่อมต่อได้
+let appSocketPromise = null;
+function ensureAppSocket() {
+  if (!appSocketPromise) appSocketPromise = new Promise((resolve) => {
+    const start = () => {
+      const socket = window.io({ transports: ['websocket', 'polling'] });
+      window.appSocket = socket;
+      (window.__socketWaiters || []).forEach((f) => f(socket));
+      resolve(socket);
+    };
+    if (window.io) return start();
+    const s = document.createElement('script');
+    s.src = '/socket.io/socket.io.js';
+    s.onload = start;
+    document.head.append(s);
+  });
+  return appSocketPromise;
+}
+
+// หน้าสาธารณะรับอัปเดตของสตรีมเมอร์แบบ realtime (src/live.js ห้อง live-watch)
+// onReconnect: เน็ตหลุดแล้วกลับมา อาจพลาดอัปเดตระหว่างนั้น → ให้หน้าดึงข้อมูลใหม่
+function watchPublicFeed(event, cb, onReconnect) {
+  ensureAppSocket().then((socket) => {
+    let joined = false;
+    const join = () => {
+      socket.emit('live:watch');
+      if (joined && onReconnect) onReconnect();
+      joined = true;
+    };
+    socket.on('connect', join);
+    if (socket.connected) join();
+    socket.on(event, cb);
+  });
+}
+
+// สถานะไลฟ์ / ตารางไลฟ์เปลี่ยน → cb({ username, live })
+function watchLive(cb, onReconnect) { watchPublicFeed('live:update', cb, onReconnect); }
+
+// โปรไฟล์สาธารณะเปลี่ยน (ชื่อ / รูป / ปก / bio / หมวด / โซเชียล) → cb({ username, profile })
+function watchProfiles(cb) { watchPublicFeed('profile:update', cb); }
 
 // ใช้ socket เดียวกับกระดิ่ง (หน้าอื่น ๆ เช่น ติดต่อแอดมิน รอรับ socket ผ่านฟังก์ชันนี้)
 function onAppSocket(cb) {

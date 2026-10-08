@@ -36,6 +36,7 @@ const server = http.createServer(app);
 const io = new Server(server);
 app.set('io', io);
 require('./src/notify').setIo(io);
+require('./src/live').setIo(io);
 app.set('trust proxy', 1);
 
 
@@ -94,11 +95,15 @@ io.on('connection', (socket) => {
   // ล็อกอินอยู่ → เข้าห้องของตัวเอง ไว้รับ "มีโดเนทเข้า" / "แจ้งเตือนใหม่" แบบ realtime ในแดชบอร์ด
   const uid = socket.request.session && socket.request.session.userId;
   if (uid) socket.join('user:' + uid);
+  // หน้าสตรีมเมอร์ / หน้าโดเนท รับสถานะไลฟ์ + ตารางไลฟ์แบบ realtime (src/live.js)
+  require('./src/live').watchPublic(socket);
 
   socket.on('overlay:join', (key) => {
     const s = db.prepare('SELECT id FROM users WHERE overlay_key = ?').get(String(key || ''));
     if (!s) return socket.emit('overlay:error', 'invalid key');
     socket.join('stream:' + s.id);
+    // Overlay ใน OBS รายงานว่ากำลังสตรีมไหม → สถานะ "กำลังไลฟ์" บนหน้าโดเนท (src/live.js)
+    require('./src/live').watchOverlay(socket, s.id);
     socket.emit('overlay:ready', { ok: true });
   });
 });

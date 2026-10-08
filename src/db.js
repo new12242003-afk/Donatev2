@@ -240,6 +240,8 @@ function ensureColumn(table, col, decl) {
   ['nickname', 'TEXT'],
   ['bio', 'TEXT'],
   ['creator_category', 'TEXT'],
+  // หมวดย่อยของหมวดหลัก (JSON array เช่น ["Roblox","Minecraft"]) — รายการอยู่ที่ src/categories.js
+  ['creator_subcategories', 'TEXT'],
   ['social_links', 'TEXT'],
   // รูปพื้นหลัง (ปก) บนการ์ดในหน้าสตรีมเมอร์
   ['cover_url', 'TEXT'],
@@ -346,6 +348,13 @@ if (!raw.prepare('PRAGMA table_info(users)').all().some((c) => c.name === 'plan_
   ['stickers_enabled', 'INTEGER NOT NULL DEFAULT 1'],
   // ขนาดรูป/GIF เหนือแจ้งเตือนบน Overlay: small / medium / large
   ['gif_size', "TEXT NOT NULL DEFAULT 'large'"],
+  // สถานะไลฟ์ (src/live.js): auto = ดูจาก OBS ที่เปิด Overlay อยู่, online / offline = สตรีมเมอร์ตั้งเอง
+  ['live_mode', "TEXT NOT NULL DEFAULT 'auto'"],
+  // ตารางไลฟ์รายสัปดาห์ (JSON [{day, start, end}] เวลาไทย) + หมายเหตุ เช่น "งดไลฟ์วันหยุดยาว"
+  ['stream_schedule', 'TEXT'],
+  ['schedule_note', "TEXT NOT NULL DEFAULT ''"],
+  // เวลาล่าสุดที่ออนไลน์ — ไว้แสดง "ไลฟ์ล่าสุดเมื่อ..." ตอนออฟไลน์
+  ['last_live_at', 'INTEGER'],
 ].forEach(([col, decl]) => ensureColumn('streamer_settings', col, decl));
 
 // PromptPay: วันหมดอายุของ QR และรหัสลับของลิงก์จ่ายเงิน (จำลอง) ที่อยู่ใน QR

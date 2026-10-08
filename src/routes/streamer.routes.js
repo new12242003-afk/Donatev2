@@ -7,6 +7,7 @@ const { token, now, clean, clampInt, buildTitle, resolveTts } = require('../util
 const { getActiveTier } = require('../tiers');
 const tts = require('../tts');
 const plans = require('../plans');
+const live = require('../live');
 const promptpay = require('../promptpay');
 const slipVerify = require('../slipVerify');
 
@@ -168,6 +169,17 @@ router.post('/tiers', (req, res) => {
 router.delete('/tiers/:id', (req, res) => {
   db.prepare('DELETE FROM notification_tiers WHERE id = ? AND user_id = ?').run(req.params.id, req.user.id);
   res.json({ ok: true });
+});
+
+// สถานะไลฟ์ + ตารางไลฟ์ (แสดงบนหน้าโดเนทและหน้าสตรีมเมอร์)
+router.get('/live', (req, res) => {
+  ensureSettings(req.user.id);
+  res.json(live.ownerView(req.user.id));
+});
+
+router.put('/live', (req, res) => {
+  ensureSettings(req.user.id);
+  res.json({ ok: true, ...live.saveSettings(req.user.id, req.body || {}) });
 });
 
 router.post('/overlay/rotate', (req, res) => {

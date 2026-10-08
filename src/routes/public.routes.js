@@ -2,6 +2,8 @@ const express = require('express');
 const { db, getConfig } = require('../db');
 const { now } = require('../util');
 const { parseSocialLinks } = require('../social');
+const live = require('../live');
+const { CREATOR_CATEGORIES, MAX_SUBS, parseSubs } = require('../categories');
 
 const router = express.Router();
 
@@ -25,9 +27,14 @@ router.get('/stats', (req, res) => {
 });
 
 router.get('/streamers', (req, res) => {
-  const rows = db.prepare(`SELECT username, display_name, avatar_url, cover_url, bio, creator_category, social_links FROM users
-    WHERE role IN ('streamer','admin') AND banned = 0 ORDER BY username`).all();
-  res.json(rows.map((r) => ({ ...r, social_links: parseSocialLinks(r.social_links) })));
+  const rows = db.prepare(`SELECT u.id, u.username, u.display_name, u.avatar_url, u.cover_url, u.bio, u.creator_category, u.creator_subcategories, u.social_links,
+      s.live_mode, s.stream_schedule, s.schedule_note, s.last_live_at
+    FROM users u LEFT JOIN streamer_settings s ON s.user_id = u.id
+    WHERE u.role IN ('streamer','admin') AND u.banned = 0 ORDER BY u.username`).all();
+  res.json(rows.map(({ id, live_mode, stream_schedule, schedule_note, last_live_at, ...r }) => ({
+    ...r, social_links: parseSocialLinks(r.social_links), creator_subcategories: parseSubs(r.creator_subcategories),
+    live: live.publicView(id, { live_mode, stream_schedule, schedule_note, last_live_at }),
+  })));
 });
 
 // ค่าที่หน้าโดเนทต้องรู้ล่วงหน้า (ไม่ใช่ข้อมูลลับ): ช่วงยอดโดเนท และเปิดรับคลิปเสียง/ไฟล์เพลงไหม
@@ -58,14 +65,14 @@ router.get('/streamer-donate-config', (req, res) => {
 // หน้าโดเนทสาธารณะ /u/:username — โปรไฟล์ + ค่าที่ฟอร์มโดเนทต้องใช้ในคำขอเดียว
 router.get('/u/:username', (req, res) => {
   const username = String(req.params.username || '').trim().toLowerCase();
-  const u = db.prepare(`SELECT id, username, role, display_name, avatar_url, bio, creator_category, social_links, email_verified, created_at, plan_expires_at,
+  const u = db.prepare(`SELECT id, username, role, display_name, avatar_url, bio, creator_category, creator_subcategories, social_links, email_verified, created_at, plan_expires_at,
       promptpay_tag, promptpay_name
     FROM users WHERE username = ? AND role IN ('streamer','admin') AND banned = 0`).get(username);
   if (!u) return res.status(404).json({ error: 'ไม่พบสตรีมเมอร์นี้' });
   res.json({
     profile: {
       username: u.username, display_name: u.display_name || u.username, avatar_url: u.avatar_url || null,
-      bio: u.bio || '', creator_category: u.creator_category || '',
+      bio: u.bio || '', creator_category: u.creator_category || '', creator_subcategories: parseSubs(u.creator_subcategories),
       social_links: parseSocialLinks(u.social_links), verified: !!u.email_verified,
     },
     config: donateConfig(u.id),
@@ -74,8 +81,21 @@ router.get('/u/:username', (req, res) => {
     // ผู้ชมโอนผ่าน QR พร้อมเพย์ของสตรีมเมอร์ — ยังไม่ตั้ง QR = รับโดเนทไม่ได้
     qr_ready: !!u.promptpay_tag,
     account_name: u.promptpay_name || '',
+    // กำลังไลฟ์อยู่ไหม + ตารางไลฟ์
+    live: live.publicView(u.id),
   });
 });
+
+// สถานะไลฟ์อย่างเดียว — หน้าโดเนทดึงซ้ำเป็นระยะให้ป้าย "กำลังไลฟ์" อัปเดตเอง
+router.get('/live/:username', (req, res) => {
+  const username = String(req.params.username || '').trim().toLowerCase();
+  const u = db.prepare("SELECT id FROM users WHERE username = ? AND role IN ('streamer','admin') AND banned = 0").get(username);
+  if (!u) return res.status(404).json({ error: 'ไม่พบสตรีมเมอร์นี้' });
+  res.json(live.publicView(u.id));
+});
+
+// รายการหมวดหมู่ครีเอเตอร์ + หมวดย่อย (src/categories.js) — แดชบอร์ดและหน้าสตรีมเมอร์ใช้ชุดเดียวกัน
+router.get('/categories', (req, res) => res.json({ categories: CREATOR_CATEGORIES, max_subs: MAX_SUBS }));
 
 router.get('/plans', (req, res) => {
   const { PLANS, TRIAL_DAYS } = require('../plans');

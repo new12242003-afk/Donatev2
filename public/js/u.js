@@ -21,6 +21,15 @@ let recorder = null, recTimer = null;
   // สตรีมเมอร์ปิดรับสติกเกอร์ → ไม่แสดงส่วนส่งสติกเกอร์เลย
   if (ST.cfg.stickers_enabled === false) ST.stickers = [];
   renderProfile();
+  renderLive(data.live);
+  // สตรีมเมอร์แก้ตาราง / เริ่ม-หยุดไลฟ์ → อัปเดตทันที (ยังดึงซ้ำเป็นระยะไว้ให้นับถอยหลังเดิน + กันพลาด)
+  watchLive((d) => { if (d.username === ST.profile.username) renderLive(d.live); }, pollLive);
+  // สตรีมเมอร์แก้ชื่อ / รูป / bio / โซเชียล → หัวหน้าโดเนทเปลี่ยนทันที
+  watchProfiles((d) => {
+    if (d.username !== ST.profile.username) return;
+    Object.assign(ST.profile, d.profile);
+    renderProfile();
+  });
   initForm();
   renderStickers();
   ST.accountName = data.account_name || '';
@@ -58,6 +67,7 @@ function renderProfile() {
   const p = ST.profile;
   document.title = `โดเนทให้ ${p.display_name} · Donate Stream`;
   const av = document.getElementById('dnAvatar');
+  av.innerHTML = '';   // เรียกซ้ำได้ตอนโปรไฟล์อัปเดตแบบ realtime
   av.append(p.avatar_url
     ? el('img', { class: 'dn-avatar', src: p.avatar_url, alt: '' })
     : el('span', { class: 'dn-avatar dn-avatar-fallback' }, p.display_name.trim().charAt(0).toUpperCase()));
@@ -65,10 +75,44 @@ function renderProfile() {
   document.getElementById('dnBadge').hidden = !p.verified;
   document.getElementById('dnBio').textContent = p.bio;
   const social = socialLinksRow(p.social_links);
-  if (social) document.getElementById('dnSocial').append(social);
+  const socialBox = document.getElementById('dnSocial');
+  socialBox.innerHTML = '';
+  if (social) socialBox.append(social);
   document.getElementById('dnAgreeName').textContent = p.display_name;
   document.getElementById('dnHideEmailName').textContent = p.display_name;
   document.getElementById('dnSelfNote').hidden = !isSelf();
+}
+
+// ---------- สถานะไลฟ์ + ตารางไลฟ์ ----------
+const LIVE_POLL_MS = 30000;
+let liveTimer = null;
+
+function renderLive(live) {
+  if (!live) return;
+  const box = document.getElementById('dnLive');
+  box.innerHTML = '';
+  box.append(liveBadge(live));
+  const sub = liveSubText(live);
+  if (sub) box.append(el('div', { class: 'dn-live-sub' }, sub));
+  const count = liveCountdownEl(live);
+  if (count) box.append(count);
+
+  const sched = liveScheduleEl(live);
+  const body = document.getElementById('dnSchedBody');
+  body.innerHTML = '';
+  if (sched) body.append(sched);
+  document.getElementById('dnSched').hidden = !sched;
+
+  // ดึงสถานะใหม่เป็นระยะ (ไม่ต้องรีเฟรชหน้า) — หยุดตอนแท็บถูกซ่อน
+  clearTimeout(liveTimer);
+  liveTimer = setTimeout(pollLive, LIVE_POLL_MS);
+}
+
+async function pollLive() {
+  if (document.hidden) { document.addEventListener('visibilitychange', pollLive, { once: true }); return; }
+  const live = await api('/api/public/live/' + encodeURIComponent(ST.profile.username)).catch(() => null);
+  if (live) renderLive(live);
+  else liveTimer = setTimeout(pollLive, LIVE_POLL_MS);
 }
 
 // ---------- ฟอร์ม ----------
