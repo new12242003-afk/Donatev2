@@ -216,6 +216,9 @@ CREATE TABLE IF NOT EXISTS notification_tiers (
 
 CREATE INDEX IF NOT EXISTS idx_don_streamer ON donations(streamer_user_id, id);
 CREATE INDEX IF NOT EXISTS idx_don_donor ON donations(donor_user_id, id);
+-- กรองประวัติตามช่วงเวลา (วันนี้ / 7 / 14 / 30 วัน) ในแดชบอร์ด
+CREATE INDEX IF NOT EXISTS idx_don_streamer_time ON donations(streamer_user_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_don_donor_time ON donations(donor_user_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_tx_user ON transactions(user_id, id);
 CREATE INDEX IF NOT EXISTS idx_pv_streamer ON page_views(streamer_user_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_tiers_user ON notification_tiers(user_id, min_amount);

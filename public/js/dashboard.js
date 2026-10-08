@@ -356,7 +356,123 @@ function initImageEditor() {
   };
 }
 
+// ---------- ตัวกรองช่วงเวลา + สรุปยอด + แสดงทีละหน้า (ประวัติการโดเนทของฉัน / ทุกธุรกรรม / ผู้สนับสนุน) ----------
+// วันนับตามเวลาไทยเสมอ: "วันนี้" = ตั้งแต่เที่ยงคืนเวลาไทย, "7 วัน" = วันนี้ + 6 วันก่อนหน้า
+const DAY_MS = 864e5, BKK_OFFSET = 7 * 3600e3;
+const PAGE_SIZE = 50;          // แสดงทีละกี่แถว (กด "แสดงเพิ่ม")
+const MANY_ROWS = 100;         // เกินนี้ = ข้อมูลเยอะ → แนะนำให้เลือกช่วงที่แคบลง
+const PERIOD_OPTS = [['today', 'วันนี้'], ['7', '7 วัน'], ['14', '14 วัน'], ['30', '30 วัน'], ['all', 'ทั้งหมด'], ['custom', 'กำหนดเอง']];
+const startOfBkkDay = (ts) => Math.floor((ts + BKK_OFFSET) / DAY_MS) * DAY_MS - BKK_OFFSET;
+const bkkDateMs = (ymd) => { const [y, m, d] = ymd.split('-').map(Number); return Date.UTC(y, m - 1, d) - BKK_OFFSET; };
+const bkkYmd = (ts) => new Date(ts + BKK_OFFSET).toISOString().slice(0, 10);
+const PERIOD_FILTERS = {};
+
+// สร้างครั้งเดียวต่อตาราง (key = sent / tx / supp) — จำช่วงที่เลือกไว้ในเบราว์เซอร์นี้, เปลี่ยนช่วง → onChange() โหลดข้อมูลใหม่
+function periodFilter(key, onChange) {
+  if (PERIOD_FILTERS[key]) return PERIOD_FILTERS[key];
+  const store = 'dash-period:' + key;
+  let st = { p: 'all', from: '', to: '' };
+  try { Object.assign(st, JSON.parse(localStorage.getItem(store) || '{}')); } catch (_) {}
+  if (!PERIOD_OPTS.some(([v]) => v === st.p)) st.p = 'all';
+
+  const box = document.getElementById(key + 'Period');
+  const seg = el('div', { class: 'seg period-seg', role: 'group', 'aria-label': 'ช่วงเวลา' });
+  const fromI = el('input', { type: 'date', 'aria-label': 'ตั้งแต่วันที่' });
+  const toI = el('input', { type: 'date', 'aria-label': 'ถึงวันที่' });
+  const custom = el('div', { class: 'period-custom' }, el('span', { class: 'muted' }, 'ตั้งแต่'), fromI, el('span', { class: 'muted' }, 'ถึง'), toI);
+  fromI.value = st.from; toI.value = st.to;
+  box.innerHTML = '';
+  box.append(seg, custom);
+
+  const save = () => { try { localStorage.setItem(store, JSON.stringify(st)); } catch (_) {} };
+  const paint = () => {
+    seg.innerHTML = '';
+    PERIOD_OPTS.forEach(([v, label]) => {
+      const b = el('button', { type: 'button', class: v === st.p ? 'active' : '' }, label);
+      b.onclick = () => f.set(v);
+      seg.append(b);
+    });
+    custom.hidden = st.p !== 'custom';
+  };
+  const f = {
+    get p() { return st.p; },
+    set(p) {
+      st.p = p;
+      // เพิ่งเปิด "กำหนดเอง" → ตั้งค่าเริ่มเป็น 30 วันล่าสุดให้แก้ต่อ
+      if (p === 'custom' && !fromI.value) { fromI.value = bkkYmd(Date.now() - 29 * DAY_MS); toI.value = bkkYmd(Date.now()); }
+      st.from = fromI.value; st.to = toI.value;
+      save(); paint(); onChange();
+    },
+    range() {
+      const today = startOfBkkDay(Date.now());
+      if (st.p === 'today') return { from: today };
+      if (/^\d+$/.test(st.p)) return { from: today - (Number(st.p) - 1) * DAY_MS };
+      if (st.p === 'custom') {
+        const r = {};
+        if (st.from) r.from = bkkDateMs(st.from);
+        if (st.to) r.to = bkkDateMs(st.to) + DAY_MS;
+        return r;
+      }
+      return {};
+    },
+    qs() {
+      const r = f.range();
+      const q = new URLSearchParams();
+      if (r.from) q.set('from', r.from);
+      if (r.to) q.set('to', r.to);
+      return q.toString() ? '?' + q : '';
+    },
+    label() {
+      if (st.p === 'today') return 'วันนี้';
+      if (/^\d+$/.test(st.p)) return st.p + ' วันล่าสุด';
+      if (st.p === 'custom') {
+        const d = (v) => v ? new Date(bkkDateMs(v) + BKK_OFFSET).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }) : '…';
+        return `${d(st.from)} – ${d(st.to)}`;
+      }
+      return 'ทั้งหมด';
+    },
+  };
+  [fromI, toI].forEach((i) => i.addEventListener('change', () => {
+    if (fromI.value && toI.value && fromI.value > toI.value) [fromI.value, toI.value] = [toI.value, fromI.value];
+    f.set('custom');
+  }));
+  paint();
+  PERIOD_FILTERS[key] = f;
+  return f;
+}
+
+// แถบสรุปของช่วงที่เลือก + คำแนะนำเมื่อข้อมูลเยอะ + ปุ่ม "แสดงเพิ่ม"
+// opts: { count, unit, total, extra, shown, onMore, capped }
+function renderHistMeta(key, f, { count, unit = 'รายการ', total, extra = '', shown, onMore, capped }) {
+  const sum = document.getElementById(key + 'Summary');
+  sum.innerHTML = '';
+  sum.append(el('span', { class: 'hist-sum-main' }, `${f.label()} · `, el('b', {}, fmt(count)), ` ${unit}`),
+    ...(total != null ? [el('span', {}, 'รวม ', el('b', {}, fmt(total) + ' ฿'))] : []),
+    ...(extra ? [el('span', { class: 'muted' }, extra)] : []));
+  if (capped) sum.append(el('span', { class: 'muted' }, `(แสดง ${fmt(count)} รายการล่าสุด — เลือกช่วงเวลาให้แคบลงเพื่อดูส่วนที่เหลือ)`));
+  // ข้อมูลเยอะ: แนะนำช่วงที่แคบลง (เสนอเฉพาะช่วงที่แคบกว่าที่เลือกอยู่)
+  if (count > MANY_ROWS && !['today', '7'].includes(f.p)) {
+    const hint = el('div', { class: 'hist-hint' }, `💡 ข้อมูลเยอะ (${fmt(count)} ${unit}) — ลองดูเฉพาะ `);
+    ['today', '7', '14', '30'].filter((p) => p !== f.p && (!/^\d+$/.test(f.p) || Number(p === 'today' ? 1 : p) < Number(f.p))).forEach((p) => {
+      const b = el('button', { type: 'button', class: 'hist-hint-btn' }, PERIOD_OPTS.find(([v]) => v === p)[1]);
+      b.onclick = () => f.set(p);
+      hint.append(b);
+    });
+    hint.append(' หรือพิมพ์ค้นหาด้านบน');
+    sum.append(hint);
+  }
+  const more = document.getElementById(key + 'More');
+  more.innerHTML = '';
+  if (shown < count) {
+    const b = el('button', { type: 'button', class: 'sm ghost' }, `แสดงเพิ่ม (อีก ${fmt(Math.min(PAGE_SIZE, count - shown))} จาก ${fmt(count - shown)} ${unit})`);
+    b.onclick = onMore;
+    more.append(el('span', { class: 'muted' }, `แสดง ${fmt(shown)} จาก ${fmt(count)} ${unit}`), b);
+  }
+}
+
 let SENT_ROWS = [];
+let SENT_PAGE = PAGE_SIZE;
+const SENT_LIMIT = 2000;   // ตรงกับ src/routes/donate.routes.js
 const SENT_HEADER = ['วันที่และเวลา', 'ถึง', 'จำนวนเงิน', 'สติกเกอร์', 'ข้อความ'];
 // กรองประวัติโดเนทตามช่องค้นหา (ชื่อสตรีมเมอร์ / ข้อความ / ชื่อหรือโค้ดสติกเกอร์ / จำนวนเงิน) — ใช้ทั้งตารางและไฟล์ที่ดาวน์โหลด
 function filteredSent() {
@@ -390,18 +506,25 @@ function sentRows() {
 }
 function exportSentExcel() { exportCsv('my-donations.csv', SENT_HEADER, sentRows()); }
 function exportSentPdf() {
-  return exportTablePdf('my-donations.pdf', 'ประวัติการโดเนทของฉัน', SENT_HEADER,
+  return exportTablePdf('my-donations.pdf', 'ประวัติการโดเนทของฉัน · ' + periodFilter('sent', loadSent).label(), SENT_HEADER,
     sentRows().map((r) => [r[0], r[1], fmt(r[2]) + ' ฿', r[3] || '-', r[4]]));
 }
 
+// โหลดซ้อนกัน (เปลี่ยนช่วงเวลา + มีโดเนทเข้าแบบ realtime พร้อมกัน) → ใช้เฉพาะผลของคำขอล่าสุด
+let sentSeq = 0, txSeq = 0, suppSeq = 0;
+
 async function loadSent() {
+  const f = periodFilter('sent', loadSent);
+  const seq = ++sentSeq;
   const [rows, stickers] = await Promise.all([
-    api('/api/donate/sent').catch(() => []),
+    api('/api/donate/sent' + f.qs()).catch(() => []),
     STICKERS.length ? STICKERS : api('/api/public/stickers').catch(() => []),
   ]);
+  if (seq !== sentSeq) return;
   STICKERS = stickers;
   SENT_ROWS = rows;
-  document.getElementById('sentSearch').oninput = renderSent;
+  SENT_PAGE = PAGE_SIZE;
+  document.getElementById('sentSearch').oninput = () => { SENT_PAGE = PAGE_SIZE; renderSent(); };
   renderSent();
 }
 
@@ -411,8 +534,14 @@ function renderSent() {
     const st = STICKERS.find((x) => x.code === code);
     return st ? `${st.emoji || ''} ${esc(st.name)}` : esc(code);
   };
-  const rows = filteredSent();
-  const empty = SENT_ROWS.length ? 'ไม่พบรายการที่ค้นหา' : 'ยังไม่มีรายการโดเนท';
+  const all = filteredSent();
+  const rows = all.slice(0, SENT_PAGE);
+  const f = periodFilter('sent', loadSent);
+  renderHistMeta('sent', f, {
+    count: all.length, total: all.reduce((s, d) => s + d.amount, 0), shown: rows.length,
+    capped: SENT_ROWS.length >= SENT_LIMIT, onMore: () => { SENT_PAGE += PAGE_SIZE; renderSent(); },
+  });
+  const empty = SENT_ROWS.length ? 'ไม่พบรายการที่ค้นหา' : f.p === 'all' ? 'ยังไม่มีรายการโดเนท' : `ไม่มีรายการโดเนทในช่วง${f.label()}`;
   document.getElementById('sentHist').innerHTML = rows.map((d) =>
     `<tr><td>${new Date(d.created_at).toLocaleString('th-TH')}</td>`
     + `<td><a href="/u/${encodeURIComponent(d.streamer_username)}">@${esc(d.streamer_username)}</a></td>`
@@ -1075,8 +1204,14 @@ let txAllRows = [];
 let txSort = { key: 'created_at', dir: 'desc' };
 
 let txSeenIds = null;
+let txPage = PAGE_SIZE;
+const TX_LIMIT = 5000;   // ตรงกับ src/routes/streamer.routes.js
 async function loadAllTransactions({ flashNew = false } = {}) {
-  txAllRows = await api('/api/streamer/transactions').catch(() => []);
+  const f = periodFilter('tx', () => { txPage = PAGE_SIZE; loadAllTransactions(); });
+  const seq = ++txSeq;
+  const rows = await api('/api/streamer/transactions' + f.qs()).catch(() => []);
+  if (seq !== txSeq) return;
+  txAllRows = rows;
   // รายการที่เพิ่งเข้ามา (ไม่เคยเห็นในรอบก่อน) ไฮไลต์สั้น ๆ
   const fresh = flashNew && txSeenIds ? new Set(txAllRows.filter((d) => !txSeenIds.has(d.id)).map((d) => d.id)) : new Set();
   txSeenIds = new Set(txAllRows.map((d) => d.id));
@@ -1085,7 +1220,7 @@ async function loadAllTransactions({ flashNew = false } = {}) {
 }
 
 function initTxControls() {
-  document.getElementById('txSearch').oninput = renderTxTable;
+  document.getElementById('txSearch').oninput = () => { txPage = PAGE_SIZE; renderTxTable(); };
   document.querySelectorAll('[data-panel="transactions"] th.sortable').forEach((th) => {
     th.onclick = () => {
       const key = th.dataset.sort;
@@ -1115,7 +1250,17 @@ function getFilteredSortedTx() {
 }
 
 function renderTxTable(fresh) {
-  const rows = getFilteredSortedTx();
+  const all = getFilteredSortedTx();
+  const rows = all.slice(0, txPage);
+  const f = PERIOD_FILTERS.tx;
+  if (f) {
+    renderHistMeta('tx', f, {
+      count: all.length, total: all.reduce((s, d) => s + d.amount, 0),
+      extra: `รับสุทธิ ${fmt(all.reduce((s, d) => s + (d.streamer_credit || 0), 0))} ฿`,
+      shown: rows.length, capped: txAllRows.length >= TX_LIMIT,
+      onMore: () => { txPage += PAGE_SIZE; renderTxTable(); },
+    });
+  }
   const isNew = (d) => fresh instanceof Set && fresh.has(d.id);
   document.querySelectorAll('[data-panel="transactions"] th.sortable').forEach((th) => {
     th.classList.toggle('sort-asc', th.dataset.sort === txSort.key && txSort.dir === 'asc');
@@ -1128,7 +1273,7 @@ function renderTxTable(fresh) {
       <td>${fmt(d.streamer_credit)}</td>
       <td>${esc(d.sticker_code || '-')}</td>
       <td>${esc(d.message || '')}</td>
-    </tr>`).join('') || '<tr><td colspan="6" class="muted">ข้อมูลไม่พร้อมใช้งาน</td></tr>';
+    </tr>`).join('') || `<tr><td colspan="6" class="muted">${txAllRows.length ? 'ไม่พบรายการที่ค้นหา' : f && f.p !== 'all' ? 'ไม่มีโดเนทในช่วง' + f.label() : 'ยังไม่มีโดเนท'}</td></tr>`;
 }
 
 function csvEscape(v) {
@@ -1203,7 +1348,7 @@ function txRows() {
 }
 function exportTxExcel() { exportCsv('transactions.csv', TX_HEADER, txRows()); }
 function exportTxPdf() {
-  return exportTablePdf('transactions.pdf', 'ทุกธุรกรรม', TX_HEADER,
+  return exportTablePdf('transactions.pdf', 'ทุกธุรกรรม' + (PERIOD_FILTERS.tx ? ' · ' + PERIOD_FILTERS.tx.label() : ''), TX_HEADER,
     txRows().map((r) => [r[0], r[1], fmt(r[2]) + ' ฿', fmt(r[3]), r[4] || '-', r[5]]));
 }
 
@@ -1729,18 +1874,24 @@ function renderStatTiles(t) {
   });
 }
 
-// ---------- ข้อมูลผู้สนับสนุน: ค้นหา / เรียงลำดับ / export (ไม่ขึ้นกับช่วงวันที่ของ Analytics — แสดงทั้งหมดตลอดกาล) ----------
+// ---------- ข้อมูลผู้สนับสนุน: ช่วงเวลา / ค้นหา / เรียงลำดับ / export ----------
+// ยอดรวมและจำนวนครั้งนับเฉพาะโดเนทในช่วงที่เลือก (ทั้งหมด = ตลอดกาล)
 let suppAllRows = [];
 let suppSort = { key: 'total', dir: 'desc' };
+let suppPage = PAGE_SIZE;
 
 async function loadSupporters() {
-  suppAllRows = await api('/api/streamer/supporters').catch(() => []);
+  const f = periodFilter('supp', () => { suppPage = PAGE_SIZE; loadSupporters(); });
+  const seq = ++suppSeq;
+  const rows = await api('/api/streamer/supporters' + f.qs()).catch(() => []);
+  if (seq !== suppSeq) return;
+  suppAllRows = rows;
   initSuppControls();
   renderSuppTable();
 }
 
 function initSuppControls() {
-  document.getElementById('suppSearch').oninput = renderSuppTable;
+  document.getElementById('suppSearch').oninput = () => { suppPage = PAGE_SIZE; renderSuppTable(); };
   document.querySelectorAll('[data-panel="leaderboard"] th.sortable').forEach((th) => {
     th.onclick = () => {
       const key = th.dataset.sort;
@@ -1767,7 +1918,16 @@ function getFilteredSortedSupp() {
 }
 
 function renderSuppTable() {
-  const rows = getFilteredSortedSupp();
+  const all = getFilteredSortedSupp();
+  const rows = all.slice(0, suppPage);
+  const f = PERIOD_FILTERS.supp;
+  if (f) {
+    renderHistMeta('supp', f, {
+      count: all.length, unit: 'คน', total: all.reduce((s, d) => s + d.total, 0),
+      extra: `${fmt(all.reduce((s, d) => s + d.count, 0))} ธุรกรรม`,
+      shown: rows.length, onMore: () => { suppPage += PAGE_SIZE; renderSuppTable(); },
+    });
+  }
   document.querySelectorAll('[data-panel="leaderboard"] th.sortable').forEach((th) => {
     th.classList.toggle('sort-asc', th.dataset.sort === suppSort.key && suppSort.dir === 'asc');
     th.classList.toggle('sort-desc', th.dataset.sort === suppSort.key && suppSort.dir === 'desc');
@@ -1777,7 +1937,7 @@ function renderSuppTable() {
       <td>${fmt(d.count)}</td>
       <td>${fmt(d.total)} ฿</td>
       <td>${esc(d.email || '-')}</td>
-    </tr>`).join('') || '<tr><td colspan="4" class="muted">ว่างเปล่า</td></tr>';
+    </tr>`).join('') || `<tr><td colspan="4" class="muted">${suppAllRows.length ? 'ไม่พบชื่อที่ค้นหา' : f && f.p !== 'all' ? 'ไม่มีผู้สนับสนุนในช่วง' + f.label() : 'ยังไม่มีผู้สนับสนุน'}</td></tr>`;
 }
 
 const SUPP_HEADER = ['ชื่อ', 'ธุรกรรม', 'จำนวนเงินทั้งหมด', 'อีเมล'];
@@ -1786,7 +1946,7 @@ function exportSuppExcel() {
     getFilteredSortedSupp().map((d) => [d.display_name || '', d.count, d.total, d.email || '']));
 }
 function exportSuppPdf() {
-  return exportTablePdf('supporters.pdf', 'ข้อมูลผู้สนับสนุน', SUPP_HEADER,
+  return exportTablePdf('supporters.pdf', 'ข้อมูลผู้สนับสนุน' + (PERIOD_FILTERS.supp ? ' · ' + PERIOD_FILTERS.supp.label() : ''), SUPP_HEADER,
     getFilteredSortedSupp().map((d) => [
       (d.display_name || '-') + (d.username ? ' (@' + d.username + ')' : ''), fmt(d.count), fmt(d.total) + ' ฿', d.email || '-',
     ]));

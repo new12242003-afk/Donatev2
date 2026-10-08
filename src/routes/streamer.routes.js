@@ -3,7 +3,7 @@ const path = require('path');
 const express = require('express');
 const { db } = require('../db');
 const { requireAuth, requireRole } = require('../auth');
-const { token, now, clean, clampInt, buildTitle, resolveTts } = require('../util');
+const { token, now, clean, clampInt, buildTitle, resolveTts, timeRange } = require('../util');
 const { getActiveTier } = require('../tiers');
 const tts = require('../tts');
 const plans = require('../plans');
@@ -242,12 +242,17 @@ router.get('/summary', (req, res) => {
   res.json({ count: agg.count, total: agg.total, recent, top });
 });
 
+// ?from=&to= = ช่วงเวลาที่เลือกในแดชบอร์ด (ไม่ส่ง = ทั้งหมด) — แดชบอร์ดแบ่งแสดงทีละหน้าเอง, เพดานกันข้อมูลก้อนใหญ่เกิน
+const TX_LIMIT = 5000;
 router.get('/transactions', (req, res) => {
+  const { from, to } = timeRange(req.query);
   res.json(db.prepare(`SELECT id, amount, display_name, message, sticker_code, streamer_credit, voice_url, audio_url, created_at
-    FROM donations WHERE streamer_user_id = ? ORDER BY id DESC LIMIT 200`).all(req.user.id));
+    FROM donations WHERE streamer_user_id = ? AND created_at >= ? AND created_at < ? ORDER BY id DESC LIMIT ?`).all(req.user.id, from, to, TX_LIMIT));
 });
 
+// ผู้สนับสนุนในช่วงเวลาที่เลือก (?from=&to=, ไม่ส่ง = ตลอดกาล) — ยอดรวม/จำนวนครั้งนับเฉพาะในช่วงนั้น
 router.get('/supporters', (req, res) => {
+  const { from, to } = timeRange(req.query);
   res.json(db.prepare(`
     SELECT COALESCE(u.display_name, d.display_name) AS display_name, u.username AS username,
            CASE WHEN (SELECT d2.hide_email FROM donations d2
@@ -255,10 +260,10 @@ router.get('/supporters', (req, res) => {
                       ORDER BY d2.id DESC LIMIT 1) = 1 THEN NULL ELSE u.email END AS email,
            SUM(d.amount) AS total, COUNT(*) AS count
     FROM donations d LEFT JOIN users u ON u.id = d.donor_user_id
-    WHERE d.streamer_user_id = ?
+    WHERE d.streamer_user_id = ? AND d.created_at >= ? AND d.created_at < ?
     -- ผู้ชมที่โดเนทผ่าน QR โดยไม่ล็อกอิน (ไม่มีบัญชี) แยกกลุ่มตามชื่อที่ใส่
     GROUP BY CASE WHEN d.donor_user_id IS NULL THEN 'g:' || d.display_name ELSE 'u:' || d.donor_user_id END
-    ORDER BY total DESC LIMIT 200`).all(req.user.id));
+    ORDER BY total DESC LIMIT 1000`).all(req.user.id, from, to));
 });
 
 router.get('/analytics', (req, res) => {

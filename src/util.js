@@ -36,4 +36,11 @@ function resolveTts(st, baseTtsEnabled, amount) {
   return true;
 }
 
-module.exports = { token, now, clean, clampInt, buildTitle, resolveTts };
+// ช่วงเวลาจาก query ?from=&to= (ms, to ไม่รวม) ของตารางประวัติในแดชบอร์ด — ไม่ส่ง = ทั้งหมด
+function timeRange(q) {
+  const from = Math.max(0, Number(q && q.from) || 0);
+  const to = Number(q && q.to) > from ? Number(q.to) : 8.64e15;
+  return { from, to };
+}
+
+module.exports = { token, now, clean, clampInt, buildTitle, resolveTts, timeRange };

@@ -2504,3 +2504,21 @@ button.sd-sub:hover { border-color: var(--plan-blue); background: rgba(77, 107, 
 /* ปุ่ม "ดูทั้งหมด" ที่หัวข้อสตรีมเมอร์ทั้งหมด (เป็น button) */
 button.sd-all-btn { font-family: inherit; cursor: pointer; }
 .sd-all-btn[hidden] { display: none; }
+
+/* แดชบอร์ด: ตัวกรองช่วงเวลา + สรุปยอด + แสดงเพิ่ม (ประวัติการโดเนทของฉัน / ทุกธุรกรรม / ผู้สนับสนุน) */
+.hist-filter { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 12px; }
+.hist-filter .period-seg { flex-wrap: wrap; }
+.period-custom { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.period-custom[hidden] { display: none; }
+.period-custom input[type="date"] { width: auto; min-height: 36px !important; padding: 6px 10px !important; }
+.hist-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; margin-top: 12px; padding: 10px 14px; border-radius: 10px; background: var(--card2); font-size: calc(13.5px * var(--text-scale)); }
+.hist-summary b { font-weight: 700; }
+.hist-hint { flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding-top: 8px; border-top: 1px dashed var(--line); color: var(--muted); font-size: calc(13px * var(--text-scale)); }
+.hist-hint-btn { padding: 3px 12px; border-radius: 999px; border: 1px solid var(--plan-blue); background: transparent; color: var(--plan-blue); font: inherit; font-size: calc(12.5px * var(--text-scale)); font-weight: 600; cursor: pointer; }
+.hist-hint-btn:hover { background: var(--plan-blue); color: #fff; }
+.hist-more { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 12px; margin-top: 12px; font-size: calc(13px * var(--text-scale)); }
+.hist-more:empty { display: none; }
+@media (max-width: 640px) {
+  .hist-filter .period-seg { width: 100%; }
+  .hist-filter .period-seg button { flex: 1 1 30%; }
+}

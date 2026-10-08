@@ -60,6 +60,9 @@
           <div class="card">
             <h2>ประวัติการโดเนทของฉัน</h2>
             <label class="adm-search dash-search" style="max-width:420px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input id="sentSearch" type="search" placeholder="ค้นหาวันที่ สตรีมเมอร์ ข้อความ สติกเกอร์ หรือจำนวนเงิน" autocomplete="off"></label>
+            <!-- ช่วงเวลา + สรุปยอด + คำแนะนำเมื่อข้อมูลเยอะ (dashboard.js periodFilter) -->
+            <div class="hist-filter" id="sentPeriod"></div>
+            <div class="hist-summary" id="sentSummary"></div>
             <div class="row" style="margin-top:10px">
               <a href="#" id="sentExportExcel" class="sm">ดาวน์โหลดข้อมูลลง Excel</a>
               <a href="#" id="sentExportPdf" class="sm">ดาวน์โหลดข้อมูลลง PDF</a>
@@ -70,6 +73,7 @@
                 <tbody id="sentHist"></tbody>
               </table>
             </div>
+            <div class="hist-more" id="sentMore"></div>
           </div>
         </section>
 
@@ -427,8 +431,10 @@
 
           <div class="card">
             <h2>ทุกธุรกรรม</h2>
-            <p class="muted">ประวัติโดเนทที่ได้รับทั้งหมด (200 รายการล่าสุด)</p>
+            <p class="muted">ประวัติโดเนทที่ได้รับ — เลือกช่วงเวลา ค้นหา หรือกดหัวตารางเพื่อเรียงลำดับ</p>
             <label class="adm-search dash-search" style="max-width:360px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input id="txSearch" type="search" placeholder="ค้นหาชื่อ หรือวันที่ เช่น 6/10/2569, ต.ค." autocomplete="off"></label>
+            <div class="hist-filter" id="txPeriod"></div>
+            <div class="hist-summary" id="txSummary"></div>
             <div class="row" style="margin-top:10px">
               <a href="#" id="txExportExcel" class="sm">ดาวน์โหลดข้อมูลลง Excel</a>
               <a href="#" id="txExportPdf" class="sm">ดาวน์โหลดข้อมูลลง PDF</a>
@@ -448,6 +454,7 @@
                 <tbody id="allTxHist"></tbody>
               </table>
             </div>
+            <div class="hist-more" id="txMore"></div>
           </div>
         </section>
 
@@ -503,6 +510,8 @@
           <div class="card">
             <h2>ข้อมูลผู้สนับสนุน</h2>
             <label class="adm-search dash-search" style="max-width:320px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input id="suppSearch" type="search" placeholder="ค้นหาชื่อ" autocomplete="off"></label>
+            <div class="hist-filter" id="suppPeriod"></div>
+            <div class="hist-summary" id="suppSummary"></div>
             <div class="row" style="margin-top:10px">
               <a href="#" id="suppExportExcel" class="sm">ดาวน์โหลดข้อมูลลง Excel</a>
               <a href="#" id="suppExportPdf" class="sm">ดาวน์โหลดข้อมูลลง PDF</a>
@@ -520,6 +529,7 @@
                 <tbody id="donorRank"></tbody>
               </table>
             </div>
+            <div class="hist-more" id="suppMore"></div>
           </div>
         </section>
 
