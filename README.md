@@ -104,7 +104,7 @@ data.db                ฐานข้อมูล SQLite (สร้างอั
    | `SESSION_SECRET` | สตริงสุ่มยาว ๆ (เช่นผลจาก `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`) |
    | `BASE_URL` | URL ของเว็บ เช่น `https://xxx.up.railway.app` (ไม่มี / ท้าย) |
    | `ADMIN_PASSWORD` | รหัสผ่านแอดมินตอนสร้างครั้งแรก |
-   | `GMAIL_USER`, `GMAIL_APP_PASSWORD`, `MAIL_FROM` | จำเป็นสำหรับสมัครสมาชิก/ลืมรหัสผ่าน (ส่งรหัสยืนยันทางอีเมล) |
+   | `BREVO_API_KEY`, `MAIL_FROM` | จำเป็นสำหรับสมัครสมาชิก/ลืมรหัสผ่าน (ส่งรหัสยืนยันทางอีเมล) — Railway แพลน Free/Hobby บล็อกพอร์ต SMTP ทำให้ `GMAIL_*` ส่งไม่ออก ต้องใช้ Brevo (หรือ `RESEND_API_KEY`) ที่ส่งผ่าน HTTPS แทน `MAIL_FROM` ต้องเป็นอีเมลผู้ส่งที่ยืนยันใน Brevo แล้ว |
    | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | ไม่บังคับ — เข้าสู่ระบบด้วย Google (redirect URI = `BASE_URL/auth/google/callback`) |
    | `GOOGLE_TTS_API_KEY` | ไม่บังคับ — AI เสียงอ่านข้อความโดเนท |
 
