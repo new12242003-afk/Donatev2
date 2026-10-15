@@ -2522,3 +2522,6 @@ button.sd-all-btn { font-family: inherit; cursor: pointer; }
   .hist-filter .period-seg { width: 100%; }
   .hist-filter .period-seg button { flex: 1 1 30%; }
 }
+/* แอดมิน: ปุ่มเพิ่มวันแพลนในหน้าต่างจัดการผู้ใช้ (แสดงเฉพาะสตรีมเมอร์) */
+.adm-user-actions [hidden] { display: none !important; }
+#umPlanAdd { grid-column: 1 / -1; }

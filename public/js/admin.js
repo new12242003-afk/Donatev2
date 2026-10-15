@@ -193,6 +193,18 @@ function initUserModal() {
       } catch (e) { toast(e.message, false); }
     };
   });
+  document.getElementById('umPlanAdd').onclick = async () => {
+    const v = await promptDialog(`เพิ่มวันใช้งานแพลนให้ @${umUser.username} (ฟรี)`, {
+      input: 'number', placeholder: 'จำนวนวัน เช่น 30',
+      validate: (x) => !(Number.isInteger(Number(x)) && Number(x) >= 1 && Number(x) <= 3650) && 'ใส่จำนวนเต็ม 1–3650 วัน',
+    });
+    if (!v) return;
+    try {
+      const r = await api('/api/admin/users/' + umUser.id + '/plan-days', { method: 'POST', body: { days: Number(v) } });
+      toast(`เพิ่ม ${v} วันแล้ว · ใช้ได้ถึง ${new Date(r.status.expires_at).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' })}`);
+      await refreshUser();
+    } catch (e) { toast(e.message, false); }
+  };
   document.getElementById('umPw').onclick = async () => {
     const p = await promptDialog('ตั้งรหัสผ่านใหม่ให้ @' + umUser.username, {
       input: 'password', placeholder: 'อย่างน้อย 6 ตัว',
@@ -229,6 +241,7 @@ function openUserModal(id) {
   document.getElementById('umSub').textContent = `@${u.username} · ${u.email || '-'} · ID ${u.id}`;
   document.getElementById('umPlan').textContent = planUntil(u);
   document.querySelectorAll('#umRole button').forEach((b) => b.classList.toggle('active', b.dataset.r === u.role));
+  document.getElementById('umPlanAdd').hidden = u.role !== 'streamer';
   const ban = document.getElementById('umBan');
   ban.textContent = u.banned ? '✅ ปลดระงับผู้ใช้' : '⛔ ระงับผู้ใช้';
   ban.classList.toggle('adm-danger', !u.banned);

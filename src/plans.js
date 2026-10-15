@@ -116,6 +116,20 @@ function applyPurchase(userId, planId, price) {
   return planStatus({ ...u, plan_expires_at: newExp });
 }
 
+// แอดมินเพิ่มวันใช้งานให้ (ฟรี) — ต่อแบบเดียวกับการซื้อแพลน และบันทึกในประวัติแพลนเป็นรายการราคา 0 บาท
+const MAX_GRANT_DAYS = 3650;
+function grantDays(userId, days) {
+  const u = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
+  const base = Math.max(expiresAt(u), now());
+  const newExp = base + days * DAY;
+  db.transaction(() => {
+    db.prepare('UPDATE users SET plan_expires_at = ? WHERE id = ?').run(newExp, userId);
+    db.prepare(`INSERT INTO plan_purchases (user_id, plan_id, label, days, price, starts_at, expires_at, created_at)
+      VALUES (?, 'admin', 'แอดมินเพิ่มวันให้', ?, 0, ?, ?, ?)`).run(userId, days, base, newExp, now());
+  })();
+  return planStatus({ ...u, plan_expires_at: newExp });
+}
+
 // ผู้โดเนทอัปเกรดเป็นสตรีมเมอร์: ช่วงทดลองฟรีเริ่มนับจากวันอัปเกรด (ไม่ใช่วันสมัคร) — เฉพาะคนที่ยังไม่เคยซื้อแพลน
 // และเวลาที่เหลืออยู่น้อยกว่า TRIAL_DAYS วัน (ไม่ลดเวลาของคนที่เหลือมากกว่านั้นอยู่แล้ว)
 function startTrialOnUpgrade(u) {
@@ -124,4 +138,4 @@ function startTrialOnUpgrade(u) {
   if (expiresAt(u) < trialEnd) db.prepare('UPDATE users SET plan_expires_at = ? WHERE id = ?').run(trialEnd, u.id);
 }
 
-module.exports = { PLANS, TRIAL_DAYS, findPlan, planStatus, planDetails, isActive, applyPurchase, startTrialOnUpgrade };
+module.exports = { PLANS, TRIAL_DAYS, findPlan, planStatus, planDetails, isActive, applyPurchase, grantDays, MAX_GRANT_DAYS, startTrialOnUpgrade };

@@ -6,6 +6,7 @@ const { now, clean, token } = require('../util');
 const slips = require('../slips');
 const notify = require('../notify');
 const planOrders = require('../planOrders');
+const plans = require('../plans');
 
 const router = express.Router();
 router.use(requireAuth, requireRole('admin'));
@@ -71,6 +72,20 @@ router.post('/users/:id/reset-password', (req, res) => {
   if (np.length < 6) return res.status(400).json({ error: 'รหัสผ่านอย่างน้อย 6 ตัว' });
   db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(bcrypt.hashSync(np, 10), req.params.id);
   res.json({ ok: true });
+});
+
+// เพิ่มวันใช้งานแพลนให้สตรีมเมอร์ (ฟรี) — หมดอายุแล้วเริ่มนับจากวันนี้, ยังไม่หมดต่อท้ายวันหมดอายุเดิม
+router.post('/users/:id/plan-days', (req, res) => {
+  const u = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id);
+  if (!u) return res.status(404).json({ error: 'ไม่พบผู้ใช้' });
+  if (u.role !== 'streamer') return res.status(400).json({ error: 'เพิ่มวันแพลนได้เฉพาะสตรีมเมอร์' });
+  const days = Number(req.body.days);
+  if (!Number.isInteger(days) || days < 1 || days > plans.MAX_GRANT_DAYS) {
+    return res.status(400).json({ error: `จำนวนวันต้องเป็นจำนวนเต็ม 1–${plans.MAX_GRANT_DAYS}` });
+  }
+  const status = plans.grantDays(u.id, days);
+  notify.add(u.id, { type: 'plan', title: `แอดมินเพิ่มวันใช้งานแพลนให้ ${days} วัน`, body: 'ตรวจดูวันหมดอายุใหม่ได้ที่หน้าแพลน', link: '/plans.html' });
+  res.json({ ok: true, status });
 });
 
 // ---------- stickers ----------
