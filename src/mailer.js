@@ -119,7 +119,24 @@ function checkMailer() {
     .then(() => console.log('  [MAIL] เชื่อมต่อส่งอีเมลสำเร็จ (' + FROM + ')'))
     .catch((e) => console.error('  [MAIL] เชื่อมต่อส่งอีเมลไม่สำเร็จ: ' + e.message
       + '\n         ตรวจ GMAIL_USER / GMAIL_APP_PASSWORD ใน .env'
-      + '\n         ถ้ารันบน Railway (แพลน Free/Hobby) พอร์ต SMTP ถูกบล็อก ให้ใช้ GMAIL_SCRIPT_URL หรือ BREVO_API_KEY แทน (ดู README)'));
+      + '\n         ถ้ารันบน Railway (แพลน Free/Hobby) พอร์ต SMTP ถูกบล็อก ให้ใช้ GMAIL_SCRIPT_URL หรือ BREVO_API_KEY แทน (ดู README)'
+      + '\n' + httpsEnvHint()));
+}
+
+// ตั้งตัวแปรบน Railway แล้วระบบยังใช้ SMTP: บอกว่าตัวแปรไหนไม่เจอ และชื่อที่น่าจะสะกดผิด (แสดงแค่ชื่อ ไม่แสดงค่า)
+function httpsEnvHint() {
+  const want = ['GMAIL_SCRIPT_URL', 'GMAIL_SCRIPT_SECRET', 'BREVO_API_KEY'];
+  const state = (k) => (process.env[k] ? 'ตั้งแล้ว' : k in process.env ? 'ค่าว่าง' : 'ไม่พบ');
+  const near = Object.keys(process.env).filter((k) => !want.includes(k) && !/^npm_/i.test(k) && /SCRIPT|BREVO/i.test(k));
+  return '         ตัวแปรที่เซิร์ฟเวอร์เห็น: ' + want.map((k) => `${k} = ${state(k)}`).join(', ')
+    + (near.length ? '\n         ชื่อตัวแปรที่อาจสะกดผิด: ' + near.map((k) => JSON.stringify(k)).join(', ') : '')
+    + '\n         (Apps Script ต้องตั้งครบทั้ง GMAIL_SCRIPT_URL และ GMAIL_SCRIPT_SECRET ใน service เดียวกับเว็บ แล้วกด Deploy)';
+}
+
+// ตั้ง Apps Script ไว้ไม่ครบคู่ — ระบบจะไม่ใช้ Apps Script เลย เตือนตั้งแต่เปิดเซิร์ฟเวอร์
+if (!USE_SCRIPT && (SCRIPT_URL || SCRIPT_SECRET)) {
+  console.warn('  [MAIL] ตั้ง ' + (SCRIPT_URL ? 'GMAIL_SCRIPT_URL' : 'GMAIL_SCRIPT_SECRET') + ' แล้ว แต่ยังขาด '
+    + (SCRIPT_URL ? 'GMAIL_SCRIPT_SECRET' : 'GMAIL_SCRIPT_URL') + ' — ระบบยังไม่ส่งผ่าน Apps Script จนกว่าจะตั้งครบทั้งคู่');
 }
 
 async function sendVerifyEmail(to, link) {
