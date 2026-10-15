@@ -36,8 +36,22 @@ npm start
 
 ## การยืนยันอีเมล (Google/Gmail)
 
-- ตั้งค่า `GMAIL_USER` + `GMAIL_APP_PASSWORD` ใน `.env` เพื่อส่งลิงก์ยืนยันจริง
+- ตั้งค่า `GMAIL_USER` + `GMAIL_APP_PASSWORD` ใน `.env` เพื่อส่งลิงก์ยืนยันจริง (ใช้ได้บนเครื่องตัวเอง)
+- **บน Railway แพลน Free/Hobby พอร์ต SMTP ถูกบล็อก** Gmail แบบข้างบนส่งไม่ออก (log ขึ้น `Connection timeout`) ให้ใช้ Google Apps Script แทน (ด้านล่าง) หรือ `BREVO_API_KEY`
 - ถ้าไม่ตั้งค่า ระบบจะแสดง "ลิงก์ยืนยัน" บนหน้าเว็บ/คอนโซลให้กดทดสอบได้ทันที
+
+### ส่งอีเมลผ่าน Google Apps Script (สำหรับ Railway)
+
+เซิร์ฟเวอร์ส่งคำขอทาง HTTPS ไปที่สคริปต์ แล้วสคริปต์ส่งอีเมลออกจาก Gmail ของคุณเอง ไม่ต้องสมัครบริการเพิ่ม (Gmail ธรรมดาส่งได้ประมาณ 100 ฉบับ/วัน ถ้าไม่พอให้เปลี่ยนไปใช้ `BREVO_API_KEY`)
+
+1. เข้า [script.google.com](https://script.google.com) ด้วยบัญชี Gmail ที่จะใช้ส่ง → **New project**
+2. ลบโค้ดเดิม วางโค้ดจาก `tools/gmail-relay.gs` แล้วแก้ `SECRET` เป็นรหัสลับยาว ๆ (สุ่มด้วย `node -e "console.log(require('crypto').randomBytes(24).toString('hex'))"`) → กดบันทึก
+3. เลือกฟังก์ชัน `testSend` → **Run** → กดอนุญาตสิทธิ์ (ถ้าขึ้น "Google hasn't verified this app" ให้กด **Advanced → Go to ... (unsafe)** เพราะเป็นสคริปต์ของคุณเอง) → ต้องได้อีเมลทดสอบเข้า Gmail
+4. **Deploy → New deployment** → ไอคอนเฟือง เลือก **Web app** → Execute as: **Me** · Who has access: **Anyone** → Deploy → คัดลอก URL ที่ลงท้ายด้วย `/exec`
+5. ตั้งตัวแปรบน Railway: `GMAIL_SCRIPT_URL` = URL จากข้อ 4, `GMAIL_SCRIPT_SECRET` = รหัสลับเดียวกับข้อ 2 → กด Deploy
+6. ดู log ต้องขึ้น `[MAIL] เชื่อมต่อ Gmail (Apps Script) สำเร็จ`
+
+ถ้าแก้โค้ดสคริปต์ทีหลัง ต้อง **Deploy → Manage deployments → แก้ไข → Version: New version** ไม่อย่างนั้น URL เดิมยังรันโค้ดเก่า
 - เข้าสู่ระบบด้วย Google: ตั้ง `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET`
   (redirect URI: `http://localhost:3000/auth/google/callback`) ผู้ใช้ Google จะถือว่ายืนยันอีเมลแล้ว
 
@@ -72,7 +86,8 @@ npm start
 server.js              จุดเริ่ม + Express + Socket.IO
 src/db.js              schema + seed (node:sqlite) + ตัวห่อ transaction()
 src/auth.js            middleware: requireAuth / requireVerified / requireRole
-src/mailer.js          ส่งอีเมลยืนยัน (Gmail / SMTP / โหมด dev)
+src/mailer.js          ส่งอีเมลยืนยัน (Brevo / Resend / Apps Script / Gmail SMTP / โหมด dev)
+tools/gmail-relay.gs   โค้ด Google Apps Script สำหรับส่งอีเมลผ่าน Gmail บน Railway
 src/google.js          passport-google-oauth20 (เปิดเมื่อมี env)
 src/promptpay.js       สร้าง/อ่าน QR พร้อมเพย์ (EMVCo)
 src/slipVerify.js      ตรวจสลิปกับธนาคาร (Slip2Go / EasySlip) + เช็คผู้รับ/ยอด/เวลา/สลิปซ้ำ
@@ -104,7 +119,7 @@ data.db                ฐานข้อมูล SQLite (สร้างอั
    | `SESSION_SECRET` | สตริงสุ่มยาว ๆ (เช่นผลจาก `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`) |
    | `BASE_URL` | URL ของเว็บ เช่น `https://xxx.up.railway.app` (ไม่มี / ท้าย) |
    | `ADMIN_PASSWORD` | รหัสผ่านแอดมินตอนสร้างครั้งแรก |
-   | `BREVO_API_KEY`, `MAIL_FROM` | จำเป็นสำหรับสมัครสมาชิก/ลืมรหัสผ่าน (ส่งรหัสยืนยันทางอีเมล) — Railway แพลน Free/Hobby บล็อกพอร์ต SMTP ทำให้ `GMAIL_*` ส่งไม่ออก ต้องใช้ Brevo (หรือ `RESEND_API_KEY`) ที่ส่งผ่าน HTTPS แทน `MAIL_FROM` ต้องเป็นอีเมลผู้ส่งที่ยืนยันใน Brevo แล้ว |
+   | `GMAIL_SCRIPT_URL`, `GMAIL_SCRIPT_SECRET` | จำเป็นสำหรับสมัครสมาชิก/ลืมรหัสผ่าน (ส่งรหัสยืนยันทางอีเมล) — Railway แพลน Free/Hobby บล็อกพอร์ต SMTP ทำให้ `GMAIL_USER`/`GMAIL_APP_PASSWORD` ส่งไม่ออก ให้ส่งผ่าน Google Apps Script แทน (ดูหัวข้อ "ส่งอีเมลผ่าน Google Apps Script") หรือใช้ `BREVO_API_KEY` + `MAIL_FROM` (อีเมลผู้ส่งที่ยืนยันใน Brevo แล้ว) |
    | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | ไม่บังคับ — เข้าสู่ระบบด้วย Google (redirect URI = `BASE_URL/auth/google/callback`) |
    | `GOOGLE_TTS_API_KEY` | ไม่บังคับ — AI เสียงอ่านข้อความโดเนท |
 
