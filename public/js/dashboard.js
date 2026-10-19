@@ -356,90 +356,9 @@ function initImageEditor() {
   };
 }
 
-// ---------- ตัวกรองช่วงเวลา + สรุปยอด + แสดงทีละหน้า (ประวัติการโดเนทของฉัน / ทุกธุรกรรม / ผู้สนับสนุน) ----------
-// วันนับตามเวลาไทยเสมอ: "วันนี้" = ตั้งแต่เที่ยงคืนเวลาไทย, "7 วัน" = วันนี้ + 6 วันก่อนหน้า
-const DAY_MS = 864e5, BKK_OFFSET = 7 * 3600e3;
+// ---------- สรุปยอด + แสดงทีละหน้า (ประวัติการโดเนทของฉัน / ทุกธุรกรรม / ผู้สนับสนุน) — ตัวกรองช่วงเวลา periodFilter() อยู่ใน common.js ----------
 const PAGE_SIZE = 50;          // แสดงทีละกี่แถว (กด "แสดงเพิ่ม")
 const MANY_ROWS = 100;         // เกินนี้ = ข้อมูลเยอะ → แนะนำให้เลือกช่วงที่แคบลง
-const PERIOD_OPTS = [['today', 'วันนี้'], ['7', '7 วัน'], ['14', '14 วัน'], ['30', '30 วัน'], ['all', 'ทั้งหมด'], ['custom', 'กำหนดเอง']];
-const startOfBkkDay = (ts) => Math.floor((ts + BKK_OFFSET) / DAY_MS) * DAY_MS - BKK_OFFSET;
-const bkkDateMs = (ymd) => { const [y, m, d] = ymd.split('-').map(Number); return Date.UTC(y, m - 1, d) - BKK_OFFSET; };
-const bkkYmd = (ts) => new Date(ts + BKK_OFFSET).toISOString().slice(0, 10);
-const PERIOD_FILTERS = {};
-
-// สร้างครั้งเดียวต่อตาราง (key = sent / tx / supp) — จำช่วงที่เลือกไว้ในเบราว์เซอร์นี้, เปลี่ยนช่วง → onChange() โหลดข้อมูลใหม่
-function periodFilter(key, onChange) {
-  if (PERIOD_FILTERS[key]) return PERIOD_FILTERS[key];
-  const store = 'dash-period:' + key;
-  let st = { p: 'all', from: '', to: '' };
-  try { Object.assign(st, JSON.parse(localStorage.getItem(store) || '{}')); } catch (_) {}
-  if (!PERIOD_OPTS.some(([v]) => v === st.p)) st.p = 'all';
-
-  const box = document.getElementById(key + 'Period');
-  const seg = el('div', { class: 'seg period-seg', role: 'group', 'aria-label': 'ช่วงเวลา' });
-  const fromI = el('input', { type: 'date', 'aria-label': 'ตั้งแต่วันที่' });
-  const toI = el('input', { type: 'date', 'aria-label': 'ถึงวันที่' });
-  const custom = el('div', { class: 'period-custom' }, el('span', { class: 'muted' }, 'ตั้งแต่'), fromI, el('span', { class: 'muted' }, 'ถึง'), toI);
-  fromI.value = st.from; toI.value = st.to;
-  box.innerHTML = '';
-  box.append(seg, custom);
-
-  const save = () => { try { localStorage.setItem(store, JSON.stringify(st)); } catch (_) {} };
-  const paint = () => {
-    seg.innerHTML = '';
-    PERIOD_OPTS.forEach(([v, label]) => {
-      const b = el('button', { type: 'button', class: v === st.p ? 'active' : '' }, label);
-      b.onclick = () => f.set(v);
-      seg.append(b);
-    });
-    custom.hidden = st.p !== 'custom';
-  };
-  const f = {
-    get p() { return st.p; },
-    set(p) {
-      st.p = p;
-      // เพิ่งเปิด "กำหนดเอง" → ตั้งค่าเริ่มเป็น 30 วันล่าสุดให้แก้ต่อ
-      if (p === 'custom' && !fromI.value) { fromI.value = bkkYmd(Date.now() - 29 * DAY_MS); toI.value = bkkYmd(Date.now()); }
-      st.from = fromI.value; st.to = toI.value;
-      save(); paint(); onChange();
-    },
-    range() {
-      const today = startOfBkkDay(Date.now());
-      if (st.p === 'today') return { from: today };
-      if (/^\d+$/.test(st.p)) return { from: today - (Number(st.p) - 1) * DAY_MS };
-      if (st.p === 'custom') {
-        const r = {};
-        if (st.from) r.from = bkkDateMs(st.from);
-        if (st.to) r.to = bkkDateMs(st.to) + DAY_MS;
-        return r;
-      }
-      return {};
-    },
-    qs() {
-      const r = f.range();
-      const q = new URLSearchParams();
-      if (r.from) q.set('from', r.from);
-      if (r.to) q.set('to', r.to);
-      return q.toString() ? '?' + q : '';
-    },
-    label() {
-      if (st.p === 'today') return 'วันนี้';
-      if (/^\d+$/.test(st.p)) return st.p + ' วันล่าสุด';
-      if (st.p === 'custom') {
-        const d = (v) => v ? new Date(bkkDateMs(v) + BKK_OFFSET).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }) : '…';
-        return `${d(st.from)} – ${d(st.to)}`;
-      }
-      return 'ทั้งหมด';
-    },
-  };
-  [fromI, toI].forEach((i) => i.addEventListener('change', () => {
-    if (fromI.value && toI.value && fromI.value > toI.value) [fromI.value, toI.value] = [toI.value, fromI.value];
-    f.set('custom');
-  }));
-  paint();
-  PERIOD_FILTERS[key] = f;
-  return f;
-}
 
 // แถบสรุปของช่วงที่เลือก + คำแนะนำเมื่อข้อมูลเยอะ + ปุ่ม "แสดงเพิ่ม"
 // opts: { count, unit, total, extra, shown, onMore, capped }

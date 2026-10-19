@@ -2525,3 +2525,22 @@ button.sd-all-btn { font-family: inherit; cursor: pointer; }
 /* แอดมิน: ปุ่มเพิ่มวันแพลนในหน้าต่างจัดการผู้ใช้ (แสดงเฉพาะสตรีมเมอร์) */
 .adm-user-actions [hidden] { display: none !important; }
 #umPlanAdd { grid-column: 1 / -1; }
+
+/* แอดมิน: หน้าประวัติผู้ใช้ (#user/<id>) */
+.adm-back { margin-bottom: 12px; }
+.adm-uh-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 18px; }
+.adm-uh-head .adm-user-top { margin-bottom: 0; min-width: 0; }
+.adm-uh-head .adm-user-top > div { min-width: 0; }
+.adm-uh-head .muted { word-break: break-all; }
+.adm-uh-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin-top: 8px; font-size: calc(13px * var(--text-scale)); }
+.adm-uh-tags .muted { word-break: normal; }
+#uhKpis { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); margin-bottom: 0; }
+.adm-uh-sum { margin-bottom: 10px; font-size: calc(13.5px * var(--text-scale)); }
+#uhTabs button[hidden] { display: none; }
+#umHistory { grid-column: 1 / -1; }
+#uhBody td.adm-msg { min-width: 200px; }
+/* แอดมิน: ตัวกรองช่วงเวลา (common.js periodFilter) + ตัวกรองสถานะ ในหน้าประวัติผู้ใช้ / ประวัติการสมัครแพลน */
+.adm-uh-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin-bottom: 12px; }
+.adm-uh-filters .hist-filter { margin-top: 0; }
+.adm-uh-filters .adm-chips:empty { display: none; }
+#phPeriod { margin: 0 0 14px; }

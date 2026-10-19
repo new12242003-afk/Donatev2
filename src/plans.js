@@ -90,7 +90,8 @@ function planDetails(u) {
   const history = [
     { kind: 'trial', label: `ทดลองใช้ฟรี`, days: Math.round((trialEnd - (u.created_at || 0)) / DAY), price: 0,
       starts_at: u.created_at, expires_at: trialEnd, created_at: u.created_at },
-    ...rows.map((r) => ({ kind: 'paid', label: r.label, days: r.days, price: r.price, starts_at: r.starts_at, expires_at: r.expires_at, created_at: r.created_at })),
+    // plan_id 'admin' = แอดมินเพิ่มวันให้ (grantDays) — หน้าแอดมินใช้แยกประเภท
+    ...rows.map((r) => ({ kind: 'paid', plan_id: r.plan_id, label: r.label, days: r.days, price: r.price, starts_at: r.starts_at, expires_at: r.expires_at, created_at: r.created_at })),
   ];
   // ช่วงที่กำลังใช้อยู่ = แถวล่าสุดที่เริ่มแล้ว (ซื้อต่อล่วงหน้าหลายครั้ง แถวหลัง ๆ อาจยังไม่ถึงเวลาเริ่ม)
   const t = now();

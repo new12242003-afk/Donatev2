@@ -30,6 +30,7 @@
         <button class="sidebar-item" data-atab="users"><span class="ic">👥</span> ผู้ใช้งาน</button>
         <button class="sidebar-item" data-atab="donations"><span class="ic">💸</span> โดเนท</button>
         <button class="sidebar-item" data-atab="planorders"><span class="ic">💳</span> ชำระค่าแพลน <span class="adm-badge" id="navPlanBadge" hidden></span></button>
+        <button class="sidebar-item" data-atab="planhistory"><span class="ic">🗂️</span> ประวัติการสมัครแพลน</button>
         <button class="sidebar-item" data-atab="stickers"><span class="ic">✨</span> สติกเกอร์</button>
         <button class="sidebar-item" data-atab="support"><span class="ic">💬</span> ข้อความจากผู้ใช้ <span class="adm-badge" data-support-badge hidden></span></button>
         <div class="sidebar-section">ระบบ</div>
@@ -95,6 +96,45 @@
           </div>
         </section>
 
+        <!-- ประวัติผู้ใช้ 1 คน (#user/<id>) — เปิดจากปุ่ม "ประวัติ" ในหน้าผู้ใช้งาน -->
+        <section class="adm-panel" data-apanel="userhistory" hidden>
+          <button type="button" class="sm ghost adm-back" id="uhBack">← กลับไปหน้าผู้ใช้งาน</button>
+          <div class="card">
+            <div class="adm-uh-head">
+              <div class="adm-user-top" id="uhTop"></div>
+              <button type="button" class="ghost" id="uhManage">⚙️ จัดการผู้ใช้</button>
+            </div>
+            <div class="adm-kpis" id="uhKpis"></div>
+          </div>
+          <div class="card">
+            <div class="adm-toolbar">
+              <div class="adm-chips" id="uhTabs">
+                <button type="button" data-f="sent" class="active">โดเนทที่ส่ง</button>
+                <button type="button" data-f="received">โดเนทที่ได้รับ</button>
+                <button type="button" data-f="plan">ประวัติการสมัครแพลน</button>
+                <button type="button" data-f="orders">ชำระค่าแพลน</button>
+                <button type="button" data-f="tickets">ติดต่อแอดมิน</button>
+              </div>
+              <label class="adm-search">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+                <input id="uhQ" type="search" placeholder="ค้นหาชื่อ / ข้อความ / รหัสอ้างอิง / วันที่" autocomplete="off">
+              </label>
+            </div>
+            <!-- ช่วงเวลา (common.js periodFilter) + ตัวกรองสถานะของแท็บที่เลือก -->
+            <div class="adm-uh-filters">
+              <div class="hist-filter" id="uhPeriod"></div>
+              <div class="adm-chips" id="uhStatus"></div>
+            </div>
+            <div class="muted adm-uh-sum" id="uhSummary"></div>
+            <div class="tablewrap tall">
+              <table class="adm-table">
+                <thead id="uhHead"></thead>
+                <tbody id="uhBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
         <!-- โดเนท -->
         <section class="adm-panel" data-apanel="donations" hidden>
           <div class="card">
@@ -139,6 +179,35 @@
               <table class="adm-table">
                 <thead><tr><th>เวลา</th><th>ผู้ใช้</th><th>แพลน</th><th>ยอด</th><th>รหัสอ้างอิง</th><th>สถานะ</th><th>จัดการ</th></tr></thead>
                 <tbody id="tp"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ประวัติการสมัครแพลนของทุกบัญชี -->
+        <section class="adm-panel" data-apanel="planhistory" hidden>
+          <div class="card">
+            <div class="adm-card-head">
+              <div><h2>ประวัติการสมัครแพลน</h2><div class="muted" id="phSummary"></div></div>
+            </div>
+            <div class="adm-toolbar">
+              <label class="adm-search">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+                <input id="phQ" type="search" placeholder="ค้นหาผู้ใช้ / แพลน / วันที่" autocomplete="off">
+              </label>
+              <div class="adm-chips" id="phFilter">
+                <button type="button" data-f="all" class="active">ทั้งหมด</button>
+                <button type="button" data-f="active">กำลังใช้งาน</button>
+                <button type="button" data-f="trial">ทดลองใช้ฟรี</button>
+                <button type="button" data-f="paid">ซื้อแพลน</button>
+                <button type="button" data-f="admin">แอดมินเพิ่มให้</button>
+              </div>
+            </div>
+            <div class="hist-filter" id="phPeriod"></div>
+            <div class="tablewrap tall">
+              <table class="adm-table">
+                <thead><tr><th>วันที่สมัคร</th><th>ผู้ใช้</th><th>แพลน</th><th>ราคา</th><th>ช่วงเวลาใช้งาน</th><th>สถานะ</th><th></th></tr></thead>
+                <tbody id="ph"></tbody>
               </table>
             </div>
           </div>
@@ -205,6 +274,7 @@
         <button type="button" data-r="admin">แอดมิน</button>
       </div>
       <div class="adm-user-actions">
+        <button type="button" class="ghost" id="umHistory">📜 ดูประวัติทั้งหมด</button>
         <button type="button" class="ghost" id="umPlanAdd">📅 เพิ่มวันแพลน</button>
         <button type="button" class="ghost" id="umPw">🔑 รีเซ็ตรหัสผ่าน</button>
         <button type="button" class="ghost" id="umBan"></button>

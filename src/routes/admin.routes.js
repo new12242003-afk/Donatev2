@@ -88,6 +88,53 @@ router.post('/users/:id/plan-days', (req, res) => {
   res.json({ ok: true, status });
 });
 
+// ประวัติของผู้ใช้หนึ่งคน (หน้าแอดมิน → ผู้ใช้งาน → ดูประวัติ): โดเนทที่ส่ง / ได้รับ, ประวัติการสมัครแพลน, การชำระค่าแพลน, เรื่องติดต่อแอดมิน
+// ตัวเลขสรุปนับจากทุกรายการ ส่วนรายการส่งกลับเฉพาะล่าสุดไม่เกิน HISTORY_LIMIT ต่อหมวด
+const HISTORY_LIMIT = 500;
+router.get('/users/:id/history', (req, res) => {
+  const u = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id);
+  if (!u) return res.status(404).json({ error: 'ไม่พบผู้ใช้' });
+  const agg = (sql) => db.prepare(sql).get(u.id);
+
+  const sent = db.prepare(`SELECT d.id, d.total_cost AS amount, d.display_name, d.message, d.sticker_code, d.created_at,
+      s.username AS streamer_username, s.display_name AS streamer_name
+    FROM donations d JOIN users s ON s.id = d.streamer_user_id
+    WHERE d.donor_user_id = ? ORDER BY d.id DESC LIMIT ?`).all(u.id, HISTORY_LIMIT);
+  const received = db.prepare(`SELECT d.id, d.total_cost AS amount, d.display_name, d.message, d.sticker_code, d.created_at,
+      du.username AS donor_username
+    FROM donations d LEFT JOIN users du ON du.id = d.donor_user_id
+    WHERE d.streamer_user_id = ? ORDER BY d.id DESC LIMIT ?`).all(u.id, HISTORY_LIMIT);
+  const orders = db.prepare(`SELECT id, reference, plan_label, price, status, created_at, paid_at, expires_at, trans_ref, note,
+      slip_file IS NOT NULL AS has_slip
+    FROM plan_orders WHERE user_id = ? ORDER BY id DESC LIMIT ?`).all(u.id, HISTORY_LIMIT);
+  const tickets = db.prepare(`SELECT t.id, t.subject, t.category, t.status, t.created_at, t.updated_at,
+      (SELECT COUNT(*) FROM support_messages m WHERE m.ticket_id = t.id) AS messages
+    FROM support_tickets t WHERE t.user_id = ? ORDER BY t.updated_at DESC LIMIT ?`).all(u.id, HISTORY_LIMIT);
+  // ประวัติการสมัครแพลน (ทดลองฟรี + ที่ซื้อ + ที่แอดมินเพิ่มให้) มีความหมายเฉพาะสตรีมเมอร์ หรือบัญชีที่เคยซื้อแพลนแล้วเปลี่ยนบทบาท
+  const hasPlanRows = !!db.prepare('SELECT 1 FROM plan_purchases WHERE user_id = ? LIMIT 1').get(u.id);
+  const planHistory = u.role === 'streamer' || hasPlanRows ? plans.planDetails(u).history : [];
+
+  res.json({
+    user: {
+      id: u.id, username: u.username, email: u.email, role: u.role, display_name: u.display_name, avatar_url: u.avatar_url,
+      email_verified: !!u.email_verified, banned: !!u.banned, created_at: u.created_at, plan_expires_at: u.plan_expires_at,
+      google: !!u.google_id, plan: plans.planStatus(u),
+    },
+    summary: {
+      sent: agg('SELECT COUNT(*) AS count, COALESCE(SUM(total_cost), 0) AS total FROM donations WHERE donor_user_id = ?'),
+      received: agg('SELECT COUNT(*) AS count, COALESCE(SUM(total_cost), 0) AS total FROM donations WHERE streamer_user_id = ?'),
+      plan_paid: agg("SELECT COUNT(*) AS count, COALESCE(SUM(price), 0) AS total FROM plan_orders WHERE user_id = ? AND status = 'paid'"),
+      tickets: agg("SELECT COUNT(*) AS count, COALESCE(SUM(status = 'open'), 0) AS open FROM support_tickets WHERE user_id = ?"),
+    },
+    donations_sent: sent,
+    donations_received: received,
+    plan_history: planHistory,
+    plan_orders: orders,
+    tickets,
+    limit: HISTORY_LIMIT,
+  });
+});
+
 // ---------- stickers ----------
 router.get('/stickers', (req, res) => {
   res.json(db.prepare('SELECT * FROM stickers ORDER BY sort, id').all());
@@ -145,6 +192,19 @@ router.get('/donations', (req, res) => {
     LEFT JOIN users du ON du.id = d.donor_user_id
     JOIN users su ON su.id = d.streamer_user_id
     ORDER BY d.id DESC LIMIT 200`).all());
+});
+
+// ---------- ประวัติการสมัครแพลนของทุกบัญชี ----------
+// ทดลองใช้ฟรี + ซื้อแพลน + แอดมินเพิ่มวันให้ — ช่วงเวลาคำนวณแบบเดียวกับหน้า "ประวัติการสมัครแพลน" ของสตรีมเมอร์ (plans.planDetails)
+const PLAN_HISTORY_LIMIT = 2000;
+router.get('/plan-history', (req, res) => {
+  const users = db.prepare("SELECT * FROM users WHERE role = 'streamer' OR id IN (SELECT user_id FROM plan_purchases)").all();
+  const rows = [];
+  users.forEach((u) => plans.planDetails(u).history.forEach((h) => rows.push({
+    ...h, user_id: u.id, username: u.username, display_name: u.display_name, avatar_url: u.avatar_url, role: u.role,
+  })));
+  rows.sort((a, b) => b.created_at - a.created_at);
+  res.json(rows.slice(0, PLAN_HISTORY_LIMIT));
 });
 
 // ---------- ชำระค่าแพลน (QR พร้อมเพย์ของเว็บ) ----------
